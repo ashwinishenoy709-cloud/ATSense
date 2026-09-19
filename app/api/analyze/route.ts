@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import type { ATSKeyword, AnalysisResult } from '@/lib/analysis-types';

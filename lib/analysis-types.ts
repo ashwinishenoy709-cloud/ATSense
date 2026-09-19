@@ -8,7 +8,7 @@ export interface ATSKeyword {
   importance: Importance;
 }
 
-export interface MissingKeyword extends ATSKeyword {}
+export type MissingKeyword = ATSKeyword;
 
 export interface GrammarIssue {
   id: string;
