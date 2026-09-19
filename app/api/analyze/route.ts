@@ -185,43 +185,58 @@ async function runGeminiAnalysis(params: {
   resumeText: string;
   jobDescription: string;
 }) {
-  const client = new GoogleGenAI({ apiKey: params.apiKey });
+  const client = new GoogleGenAI({
+    apiKey: params.apiKey,
+  });
+
   const input = `Analyze the following resume. If a target job description is present, identify only meaningful ATS signals such as explicit skills, tools, methodologies, certifications, domain terms, and clearly stated soft-skill requirements; omit boilerplate language and generic filler words.
 
 --- RESUME TEXT ---
 ${params.resumeText}
 
 --- TARGET JOB DESCRIPTION ---
-${params.jobDescription || '(Not provided. Use a conservative role-relevant ATS benchmark inferred from the resume.)'}`;
+${
+  params.jobDescription ||
+  '(Not provided. Use a conservative role-relevant ATS benchmark inferred from the resume.)'
+}`;
 
   let lastError: unknown;
 
   for (const model of MODEL_CANDIDATES) {
     try {
-      const interaction = await client.interactions.create({
+      const response = await client.models.generateContent({
         model,
-        store: false,
-        system_instruction: SYSTEM_INSTRUCTION,
-        input,
-        response_format: {
-          type: 'text',
-          mime_type: 'application/json',
-          schema: responseJsonSchema,
+        contents: input,
+
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+
+          responseMimeType: 'application/json',
+
+          responseSchema: responseJsonSchema,
+
+          temperature: 0.2,
         },
       });
 
-      if (!interaction.output_text) {
+      const outputText = response.text;
+
+      if (!outputText) {
         throw new Error('Gemini returned an empty analysis response.');
       }
 
-      const parsedJson = JSON.parse(interaction.output_text);
+      const parsedJson = JSON.parse(outputText);
+
       return {
         model,
         data: aiResponseSchema.parse(parsedJson),
       };
     } catch (error) {
       lastError = error;
-      if (!isModelAvailabilityError(error)) throw error;
+
+      if (!isModelAvailabilityError(error)) {
+        throw error;
+      }
     }
   }
 
@@ -381,7 +396,29 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error during analysis.';
-    return NextResponse.json({ error: `Analysis failed: ${message}` }, { status: 500 });
+    console.error("ATSense /api/analyze error:", error);
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Unknown error during analysis.";
+
+    if (message.includes("429") || message.toLowerCase().includes("rate limit")) {
+      return NextResponse.json(
+        {
+          error:
+            "Gemini API quota has been reached. Please try again after the quota resets.",
+        },
+        { status: 429 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          "AI analysis is temporarily unavailable. Check the server terminal for details.",
+      },
+      { status: 500 }
+    );
   }
 }
