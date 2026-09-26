@@ -234,6 +234,72 @@ ${
     } catch (error) {
       lastError = error;
 
+      const status =
+        typeof error === "object" &&
+        error !== null &&
+        "status" in error &&
+        typeof (error as { status?: unknown }).status === "number"
+          ? (error as { status: number }).status
+          : undefined;
+
+      // Daily quota/rate limit — don't retry
+      if (status === 429) {
+        throw error;
+      }
+
+      // Gemini temporarily overloaded
+      if (status === 503) {
+        console.warn(
+          `Gemini model ${model} is temporarily unavailable. Retrying once...`
+        );
+
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
+        try {
+          const retryResponse = await client.models.generateContent({
+            model,
+            contents: input,
+            config: {
+              systemInstruction: SYSTEM_INSTRUCTION,
+              responseMimeType: "application/json",
+              responseSchema: responseJsonSchema,
+              temperature: 0.2,
+            },
+          });
+
+          const retryText = retryResponse.text;
+
+          if (!retryText) {
+            throw new Error("Gemini returned an empty analysis response.");
+          }
+
+          return {
+            model,
+            data: aiResponseSchema.parse(JSON.parse(retryText)),
+          };
+        } catch (retryError) {
+          lastError = retryError;
+
+          const retryStatus =
+            typeof retryError === "object" &&
+            retryError !== null &&
+            "status" in retryError
+              ? (retryError as { status?: number }).status
+              : undefined;
+
+          if (retryStatus === 429) {
+            throw retryError;
+          }
+
+          // move to next model if 503 continues
+          if (retryStatus === 503) {
+            continue;
+          }
+
+          throw retryError;
+        }
+      }
+
       if (!isModelAvailabilityError(error)) {
         throw error;
       }
@@ -410,6 +476,23 @@ export async function POST(req: NextRequest) {
             "Gemini API quota has been reached. Please try again after the quota resets.",
         },
         { status: 429 }
+      );
+    }
+
+    const status =
+      typeof error === "object" &&
+      error !== null &&
+      "status" in error
+        ? (error as { status?: number }).status
+        : undefined;
+
+    if (status === 503) {
+      return NextResponse.json(
+        {
+          error:
+            "AI analysis is temporarily unavailable. Please try again in a few minutes.",
+        },
+        { status: 503 }
       );
     }
 
