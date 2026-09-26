@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import type { ATSKeyword, AnalysisResult } from '@/lib/analysis-types';
@@ -185,124 +185,43 @@ async function runGeminiAnalysis(params: {
   resumeText: string;
   jobDescription: string;
 }) {
-  const client = new GoogleGenAI({
-    apiKey: params.apiKey,
-  });
-
+  const client = new GoogleGenAI({ apiKey: params.apiKey });
   const input = `Analyze the following resume. If a target job description is present, identify only meaningful ATS signals such as explicit skills, tools, methodologies, certifications, domain terms, and clearly stated soft-skill requirements; omit boilerplate language and generic filler words.
 
 --- RESUME TEXT ---
 ${params.resumeText}
 
 --- TARGET JOB DESCRIPTION ---
-${
-  params.jobDescription ||
-  '(Not provided. Use a conservative role-relevant ATS benchmark inferred from the resume.)'
-}`;
+${params.jobDescription || '(Not provided. Use a conservative role-relevant ATS benchmark inferred from the resume.)'}`;
 
   let lastError: unknown;
 
   for (const model of MODEL_CANDIDATES) {
     try {
-      const response = await client.models.generateContent({
+      const interaction = await client.interactions.create({
         model,
-        contents: input,
-
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-
-          responseMimeType: 'application/json',
-
-          responseSchema: responseJsonSchema,
-
-          temperature: 0.2,
+        store: false,
+        system_instruction: SYSTEM_INSTRUCTION,
+        input,
+        response_format: {
+          type: 'text',
+          mime_type: 'application/json',
+          schema: responseJsonSchema,
         },
       });
 
-      const outputText = response.text;
-
-      if (!outputText) {
+      if (!interaction.output_text) {
         throw new Error('Gemini returned an empty analysis response.');
       }
 
-      const parsedJson = JSON.parse(outputText);
-
+      const parsedJson = JSON.parse(interaction.output_text);
       return {
         model,
         data: aiResponseSchema.parse(parsedJson),
       };
     } catch (error) {
       lastError = error;
-
-      const status =
-        typeof error === "object" &&
-        error !== null &&
-        "status" in error &&
-        typeof (error as { status?: unknown }).status === "number"
-          ? (error as { status: number }).status
-          : undefined;
-
-      // Daily quota/rate limit — don't retry
-      if (status === 429) {
-        throw error;
-      }
-
-      // Gemini temporarily overloaded
-      if (status === 503) {
-        console.warn(
-          `Gemini model ${model} is temporarily unavailable. Retrying once...`
-        );
-
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-
-        try {
-          const retryResponse = await client.models.generateContent({
-            model,
-            contents: input,
-            config: {
-              systemInstruction: SYSTEM_INSTRUCTION,
-              responseMimeType: "application/json",
-              responseSchema: responseJsonSchema,
-              temperature: 0.2,
-            },
-          });
-
-          const retryText = retryResponse.text;
-
-          if (!retryText) {
-            throw new Error("Gemini returned an empty analysis response.");
-          }
-
-          return {
-            model,
-            data: aiResponseSchema.parse(JSON.parse(retryText)),
-          };
-        } catch (retryError) {
-          lastError = retryError;
-
-          const retryStatus =
-            typeof retryError === "object" &&
-            retryError !== null &&
-            "status" in retryError
-              ? (retryError as { status?: number }).status
-              : undefined;
-
-          if (retryStatus === 429) {
-            throw retryError;
-          }
-
-          // move to next model if 503 continues
-          if (retryStatus === 503) {
-            continue;
-          }
-
-          throw retryError;
-        }
-      }
-
-      if (!isModelAvailabilityError(error)) {
-        throw error;
-      }
+      if (!isModelAvailabilityError(error)) throw error;
     }
   }
 
@@ -462,46 +381,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("ATSense /api/analyze error:", error);
-
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Unknown error during analysis.";
-
-    if (message.includes("429") || message.toLowerCase().includes("rate limit")) {
-      return NextResponse.json(
-        {
-          error:
-            "Gemini API quota has been reached. Please try again after the quota resets.",
-        },
-        { status: 429 }
-      );
-    }
-
-    const status =
-      typeof error === "object" &&
-      error !== null &&
-      "status" in error
-        ? (error as { status?: number }).status
-        : undefined;
-
-    if (status === 503) {
-      return NextResponse.json(
-        {
-          error:
-            "AI analysis is temporarily unavailable. Please try again in a few minutes.",
-        },
-        { status: 503 }
-      );
-    }
-
-    return NextResponse.json(
-      {
-        error:
-          "AI analysis is temporarily unavailable. Check the server terminal for details.",
-      },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Unknown error during analysis.';
+    return NextResponse.json({ error: `Analysis failed: ${message}` }, { status: 500 });
   }
 }
