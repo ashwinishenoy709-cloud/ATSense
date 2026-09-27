@@ -167,9 +167,9 @@ export default function Home() {
               <div className="flex flex-col gap-4 lg:col-span-3">
                 <Card className="border-border/60 shadow-sm">
                   <CardHeader>
-                    <CardTitle className="text-base">Key Metrics</CardTitle>
+                    <CardTitle className="text-base">ATS Score Breakdown</CardTitle>
                     <CardDescription>
-                      Breakdown of your resume’s ATS readiness
+                      See how each scoring factor contributes to your overall ATS compatibility estimate
                     </CardDescription>
                   </CardHeader>
                 </Card>

@@ -4,9 +4,13 @@ import { z } from 'zod';
 import type { ATSKeyword, AnalysisResult } from '@/lib/analysis-types';
 import {
   buildScoreSummary,
+  calculateActionVerbQuality,
   calculateATSScore,
+  calculateContactParsing,
+  calculateExperienceRelevance,
   calculateFormattingQuality,
   calculateKeywordCoverage,
+  calculateQuantifiedAchievements,
   calculateReadability,
   calculateSectionCompleteness,
   getScoreLabel,
@@ -322,16 +326,30 @@ export async function POST(req: NextRequest) {
     }
 
     const keywordCoverage = calculateKeywordCoverage(resumeText, keywords);
-    const readabilityIndex = calculateReadability(resumeText);
+    const experienceRelevance = calculateExperienceRelevance(
+      resumeText,
+      keywords
+    );
     const formattingQuality = calculateFormattingQuality(resumeText);
-    const sectionCompleteness = calculateSectionCompleteness(resumeText);
-
+    const sectionCompleteness =
+      calculateSectionCompleteness(resumeText);
+    const readabilityIndex =
+      calculateReadability(resumeText);
+    const quantifiedAchievements =
+      calculateQuantifiedAchievements(resumeText);
+    const actionVerbQuality =
+      calculateActionVerbQuality(resumeText);
+    const contactParsing =
+      calculateContactParsing(resumeText);
     const atsScore = calculateATSScore({
       keywordMatch: keywordCoverage.score,
-      readabilityIndex,
+      experienceRelevance,
       formattingQuality,
       sectionCompleteness,
-      jobDescriptionProvided,
+      readabilityIndex,
+      quantifiedAchievements,
+      actionVerbQuality,
+      contactParsing,
     });
 
     const grammarIssues = aiAnalysis.data.grammarIssues
@@ -354,14 +372,20 @@ export async function POST(req: NextRequest) {
       scoreSummary: buildScoreSummary({
         atsScore,
         keywordMatch: keywordCoverage.score,
+        experienceRelevance,
         formattingQuality,
         readabilityIndex,
         jobDescriptionProvided,
       }),
       metrics: {
         keywordMatch: keywordCoverage.score,
-        readabilityIndex,
+        experienceRelevance,
         formattingQuality,
+        sectionCompleteness,
+        readabilityIndex,
+        quantifiedAchievements,
+        actionVerbQuality,
+        contactParsing,
       },
       missingKeywords: keywordCoverage.missing,
       grammarIssues,
