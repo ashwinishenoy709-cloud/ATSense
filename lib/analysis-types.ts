@@ -8,6 +8,7 @@ export interface ATSKeyword {
   keyword: string;
   category: KeywordCategory;
   importance: Importance;
+  requirementType: 'required' | 'preferred';
 }
 
 export type MissingKeyword = ATSKeyword;

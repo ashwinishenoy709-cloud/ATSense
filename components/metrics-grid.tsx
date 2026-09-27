@@ -158,15 +158,15 @@ export function MetricsGrid({ metrics }: MetricsGridProps) {
 
       <MetricCard
         icon={<LayoutTemplate className="h-4 w-4 text-chart-2" />}
-        label="ATS Formatting"
+        label="ATS Formatting & Parsing"
         value={metrics.formattingQuality}
         weight={15}
         note={
           metrics.formattingQuality >= 80
-            ? 'Strong text structure for ATS parsing.'
+            ? 'Strong text structure and section organization for ATS parsing.'
             : metrics.formattingQuality >= 60
-              ? 'Mostly parseable, with some formatting improvements available.'
-              : 'Resume structure may make ATS parsing less reliable.'
+              ? 'Mostly parseable structure with some ATS formatting improvements available.'
+              : 'Text structure may make automated parsing less reliable.'
         }
         colorClass="bg-chart-2/10"
       />

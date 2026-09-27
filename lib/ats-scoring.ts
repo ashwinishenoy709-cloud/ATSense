@@ -18,6 +18,11 @@ const importanceWeight = {
   low: 1,
 } as const;
 
+const requirementMultiplier = {
+  required: 1.5,
+  preferred: 1,
+} as const;
+
 /* -------------------------------------------------------------------------- */
 /* KEYWORD MATCH                                                              */
 /* -------------------------------------------------------------------------- */
@@ -67,7 +72,9 @@ export function calculateKeywordCoverage(
   const missing: MissingKeyword[] = [];
 
   for (const signal of keywords) {
-    const weight = importanceWeight[signal.importance];
+    const weight =
+      importanceWeight[signal.importance] *
+      requirementMultiplier[signal.requirementType];
 
     possible += weight;
 
@@ -189,79 +196,190 @@ export function calculateSectionCompleteness(
 export function calculateFormattingQuality(
   resumeText: string
 ): number {
-  let score = 40;
-
   const text = resumeText.trim();
-  const length = text.length;
 
-  /*
-   * Resume length sanity check.
-   */
-  if (length >= 1200 && length <= 12000) {
-    score += 15;
-  } else if (length >= 600) {
-    score += 8;
+  if (!text) {
+    return 0;
   }
 
-  /*
-   * Detect excessive unusual characters.
-   */
-  const nonWhitespace = text.replace(/\s/g, '');
+  let score = 100;
 
-  const unusual = nonWhitespace.replace(
-    /[A-Za-z0-9.,:;()@%+/#&'"!?\-]/g,
-    ''
-  ).length;
-
-  const unusualRatio = nonWhitespace.length
-    ? unusual / nonWhitespace.length
-    : 1;
-
-  if (unusualRatio < 0.015) {
-    score += 15;
-  } else if (unusualRatio < 0.04) {
-    score += 8;
-  }
-
-  /*
-   * Enough separate text lines usually means
-   * the document is not one giant paragraph.
-   */
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
 
-  if (lines.length >= 15) {
-    score += 10;
-  } else if (lines.length >= 8) {
-    score += 5;
+  /*
+   * 1. Resume content length
+   *
+   * We cannot know the physical page count from extracted text,
+   * so this is only a content-density check.
+   */
+  const length = text.length;
+
+  if (length < 600) {
+    score -= 20;
+  } else if (length < 1200) {
+    score -= 8;
+  } else if (length > 16000) {
+    score -= 8;
   }
 
   /*
-   * Detect bullet-like formatting.
+   * 2. Section structure
+   *
+   * ATS systems need recognizable sections.
+   */
+  const sectionPatterns = [
+    /\b(summary|professional summary|profile|objective)\b/i,
+    /\b(experience|professional experience|work experience|employment|internship)\b/i,
+    /\b(education|academic background|qualification)\b/i,
+    /\b(skills|technical skills|core competencies|technologies)\b/i,
+    /\b(projects|project experience|selected projects)\b/i,
+    /\b(certifications|certificates)\b/i,
+  ];
+
+  const detectedSections = sectionPatterns.filter((pattern) =>
+    pattern.test(text)
+  ).length;
+
+  if (detectedSections <= 1) {
+    score -= 20;
+  } else if (detectedSections === 2) {
+    score -= 12;
+  } else if (detectedSections === 3) {
+    score -= 6;
+  }
+
+  /*
+   * 3. Line structure
+   *
+   * A resume extracted as one giant paragraph is harder
+   * for an ATS parser to interpret.
+   */
+  if (lines.length < 8) {
+    score -= 15;
+  } else if (lines.length < 15) {
+    score -= 6;
+  }
+
+  /*
+   * 4. Bullet-point structure
    */
   const bulletLines = lines.filter((line) =>
-    /^[-•▪◦*]\s+/.test(line)
-  ).length;
+    /^[-•▪◦*●○]\s+/.test(line)
+  );
 
-  if (bulletLines >= 3) {
-    score += 10;
-  } else if (bulletLines >= 1) {
-    score += 5;
+  if (bulletLines.length === 0) {
+    score -= 8;
+  } else if (bulletLines.length >= 3) {
+    score += 0;
   }
 
   /*
-   * Very long lines may indicate dense paragraphs.
+   * 5. Extremely long lines
+   *
+   * Long uninterrupted lines can indicate dense content
+   * or poor extraction structure.
    */
-  const extremelyLongLines = lines.filter(
-    (line) => line.length > 250
+  const veryLongLines = lines.filter(
+    (line) => line.length > 220
   ).length;
 
-  if (extremelyLongLines === 0) {
-    score += 10;
-  } else if (extremelyLongLines <= 2) {
-    score += 5;
+  const extremelyLongLines = lines.filter(
+    (line) => line.length > 350
+  ).length;
+
+  score -= Math.min(12, veryLongLines * 2);
+  score -= Math.min(10, extremelyLongLines * 3);
+
+  /*
+   * 6. Excessive special/unusual characters
+   */
+  const nonWhitespace = text.replace(/\s/g, '');
+
+  const unusualCharacters = nonWhitespace.replace(
+    /[A-Za-z0-9.,:;()@%+/#&'"!?\-]/g,
+    ''
+  ).length;
+
+  const unusualRatio = nonWhitespace.length
+    ? unusualCharacters / nonWhitespace.length
+    : 1;
+
+  if (unusualRatio > 0.08) {
+    score -= 15;
+  } else if (unusualRatio > 0.04) {
+    score -= 8;
+  } else if (unusualRatio > 0.015) {
+    score -= 3;
+  }
+
+  /*
+   * 7. Detect suspicious repeated separators.
+   *
+   * These can come from decorative layouts that do not
+   * translate cleanly into ATS-readable text.
+   */
+  const separatorLines = lines.filter((line) =>
+    /^[-_=*•▪◦]{5,}$/.test(line)
+  ).length;
+
+  if (separatorLines >= 5) {
+    score -= 8;
+  } else if (separatorLines >= 3) {
+    score -= 4;
+  }
+
+  /*
+   * 8. Detect excessive repeated blank/spacing artifacts.
+   */
+  const repeatedSpaces = (text.match(/ {3,}/g) ?? []).length;
+
+  if (repeatedSpaces > 15) {
+    score -= 6;
+  } else if (repeatedSpaces > 8) {
+    score -= 3;
+  }
+
+  /*
+   * 9. Bullet consistency.
+   *
+   * Mixing many different bullet styles is not necessarily
+   * invalid, but excessive variation can indicate inconsistent
+   * document structure.
+   */
+  const bulletStyles = new Set(
+    bulletLines
+      .map((line) => line.match(/^([-•▪◦*●○])/))
+      .filter(Boolean)
+      .map((match) => match?.[1])
+  );
+
+  if (bulletStyles.size >= 4) {
+    score -= 5;
+  } else if (bulletStyles.size >= 3) {
+    score -= 2;
+  }
+
+  /*
+   * 10. Detect likely heading lines.
+   *
+   * This does not judge visual font styling. It only checks
+   * whether recognizable section headings can be detected.
+   */
+  const headingLikeLines = lines.filter((line) => {
+    if (line.length > 80) return false;
+
+    return sectionPatterns.some((pattern) =>
+      pattern.test(line)
+    );
+  });
+
+  if (headingLikeLines.length >= 4) {
+    score += 0;
+  } else if (headingLikeLines.length <= 1) {
+    score -= 6;
   }
 
   return clamp(score);
@@ -282,7 +400,7 @@ function extractExperienceContent(resumeText: string): string {
     const trimmed = line.trim();
 
     if (
-      /\b(experience|professional experience|work experience|internship|projects|project experience)\b/i.test(
+      /\b(experience|professional experience|work experience|employment|employment history|internship|internships|projects|project experience|selected projects|relevant experience)\b/i.test(
         trimmed
       )
     ) {
@@ -292,7 +410,7 @@ function extractExperienceContent(resumeText: string): string {
 
     if (
       insideRelevantSection &&
-      /\b(education|skills|certifications|achievements|summary|profile)\b/i.test(
+      /\b(education|skills|technical skills|certifications|achievements|awards|summary|professional summary|profile|objective|publications)\b/i.test(
         trimmed
       )
     ) {
@@ -318,27 +436,45 @@ export function calculateExperienceRelevance(
 ): number {
   if (keywords.length === 0) return 0;
 
-  const experienceContent =
-    extractExperienceContent(resumeText);
+  const experienceContent = extractExperienceContent(resumeText);
 
   if (!experienceContent.trim()) {
-    const generalCoverage =
-      calculateKeywordCoverage(
-        resumeText,
-        keywords
-      ).score;
-
-    return clamp(generalCoverage * 0.6);
+    return 0;
   }
 
-  let earned = 0;
-  let possible = 0;
+  const experienceLines = experienceContent
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length >= 25);
 
+  if (experienceLines.length === 0) {
+    return 0;
+  }
+
+  let earnedWeight = 0;
+  let possibleWeight = 0;
+
+  const requirementMultiplier = {
+    required: 1.5,
+    preferred: 1,
+  } as const;
+
+  /*
+   * 1. Check whether target keywords are actually demonstrated
+   *    inside Experience / Projects.
+   *
+   * Required keywords receive more weight than preferred ones.
+   */
   for (const keyword of keywords) {
-    const weight =
+    const importance =
       importanceWeight[keyword.importance];
 
-    possible += weight;
+    const requirement =
+      requirementMultiplier[keyword.requirementType];
+
+    const weight = importance * requirement;
+
+    possibleWeight += weight;
 
     if (
       isKeywordPresent(
@@ -346,15 +482,43 @@ export function calculateExperienceRelevance(
         keyword.keyword
       )
     ) {
-      earned += weight;
+      earnedWeight += weight;
     }
   }
 
-  if (possible === 0) return 0;
+  if (possibleWeight === 0) {
+    return 0;
+  }
 
-  return clamp(
-    (earned / possible) * 100
+  const keywordEvidenceScore =
+    (earnedWeight / possibleWeight) * 100;
+
+  /*
+   * 2. Check whether matched keywords occur inside actual
+   *    experience/project statements rather than only once
+   *    in a heading or isolated line.
+   */
+  const contextualLines = experienceLines.filter((line) =>
+    keywords.some((keyword) =>
+      isKeywordPresent(line, keyword.keyword)
+    )
   );
+
+  const contextScore =
+    (contextualLines.length /
+      experienceLines.length) *
+    100;
+
+  /*
+   * 3. Combine:
+   *    70% = weighted target-skill evidence
+   *    30% = keywords appearing in contextual experience lines
+   */
+  const finalScore =
+    keywordEvidenceScore * 0.7 +
+    contextScore * 0.3;
+
+  return clamp(finalScore);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -595,7 +759,7 @@ export function buildScoreSummary(params: {
     : `The resume covers ${keywordMatch}% of the ATS benchmark inferred for its likely role.`;
 
   const relevance =
-    ` Relevant skills appear within experience or project content at ${experienceRelevance}%.`;
+    ` Target skills are evidenced within experience or project content at ${experienceRelevance}%.`;
 
   if (atsScore >= 80) {
     return `${context}${relevance} Formatting quality is ${formattingQuality}% and readability is ${readabilityIndex}%, indicating a strong ATS-compatible foundation.`;

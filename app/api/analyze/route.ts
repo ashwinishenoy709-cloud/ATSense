@@ -36,8 +36,21 @@ const MODEL_CANDIDATES = Array.from(
 
 const aiKeywordSchema = z.object({
   keyword: z.string().min(1).max(100),
-  category: z.enum(['technical', 'soft', 'tools', 'domain']),
-  importance: z.enum(['high', 'medium', 'low']),
+  category: z.enum([
+    'technical',
+    'soft',
+    'tools',
+    'domain',
+  ]),
+  importance: z.enum([
+    'high',
+    'medium',
+    'low',
+  ]),
+  requirementType: z.enum([
+    'required',
+    'preferred',
+  ]),
 });
 
 const aiGrammarIssueSchema = z.object({
@@ -80,8 +93,17 @@ const responseJsonSchema = {
             type: 'string',
             enum: ['high', 'medium', 'low'],
           },
+          requirementType: {
+            type: 'string',
+            enum: ['required', 'preferred'],
+          },
         },
-        required: ['keyword', 'category', 'importance'],
+        required: [
+          'keyword',
+          'category',
+          'importance',
+          'requirementType',
+        ],
       },
     },
     grammarIssues: {
@@ -145,6 +167,10 @@ Rules:
 2. Grammar issue "original" text must be copied from the resume. If you cannot find a genuine issue, return fewer issues rather than inventing one.
 3. Suggested rewrites may improve wording and structure, but must preserve the facts in the original text. If a measurable result is missing, recommend adding one only if the user can verify it; do not make up a number.
 4. If a target job description is provided, keyword signals must come from or be directly implied by that description. Do not invent unrelated requirements.
+4a. When a target job description is provided, classify each keyword signal as:
+- "required" when the job description clearly presents it as required, mandatory, must-have, or an essential qualification.
+- "preferred" when the job description presents it as preferred, desirable, nice-to-have, bonus, plus, or equivalent optional language.
+- Do not classify a keyword as "required" merely because the technology appears somewhere in the job description.
 5. If no target job description is provided, infer the likely software/technical role from the resume and return a conservative general ATS benchmark relevant to that role.
 6. Missing keyword status is NOT your job. Return keyword signals only; the server will verify whether each signal actually appears in the resume.
 7. Actionable fixes must be specific to the supplied content. Phrase skill additions conditionally when the resume does not prove the skill, for example: "If you have Docker experience, add it to...".
@@ -317,7 +343,10 @@ export async function POST(req: NextRequest) {
       ? dedupedKeywords.filter((keyword) =>
           isKeywordPresent(jobDescription, keyword.keyword)
         )
-      : dedupedKeywords;
+      : dedupedKeywords.map((keyword) => ({
+          ...keyword,
+          requirementType: 'preferred' as const,
+        }));
 
     if (keywords.length === 0) {
       throw new Error(
@@ -331,16 +360,12 @@ export async function POST(req: NextRequest) {
       keywords
     );
     const formattingQuality = calculateFormattingQuality(resumeText);
-    const sectionCompleteness =
-      calculateSectionCompleteness(resumeText);
-    const readabilityIndex =
-      calculateReadability(resumeText);
-    const quantifiedAchievements =
-      calculateQuantifiedAchievements(resumeText);
-    const actionVerbQuality =
-      calculateActionVerbQuality(resumeText);
-    const contactParsing =
-      calculateContactParsing(resumeText);
+    const sectionCompleteness = calculateSectionCompleteness(resumeText);
+    const readabilityIndex = calculateReadability(resumeText);
+    const quantifiedAchievements = calculateQuantifiedAchievements(resumeText);
+    const actionVerbQuality = calculateActionVerbQuality(resumeText);
+    const contactParsing = calculateContactParsing(resumeText);
+
     const atsScore = calculateATSScore({
       keywordMatch: keywordCoverage.score,
       experienceRelevance,
