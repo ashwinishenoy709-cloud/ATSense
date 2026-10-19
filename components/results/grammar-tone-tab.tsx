@@ -42,11 +42,12 @@ export function GrammarToneTab({ issues }: GrammarToneTabProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">{issues.length} sections</span>
-        flagged for grammar, tone, or clarity improvements.
-      </div>
-
+    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <span className="font-medium text-foreground">
+        {issues.length} {issues.length === 1 ? 'section' : 'sections'}
+      </span>
+      flagged for grammar, tone, or clarity improvements.
+    </div>
       {issues.map((issue) => {
         const sev = severityConfig[issue.severity];
         return (

@@ -12,6 +12,10 @@ const normalize = (text: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const keywordAliases: Record<string, string[]> = {
+  sql: ['mysql', 'postgresql', 'sqlite', 'microsoft sql server'],
+};
+
 const importanceWeight = {
   high: 3,
   medium: 2,
@@ -26,34 +30,23 @@ const requirementMultiplier = {
 /* -------------------------------------------------------------------------- */
 /* KEYWORD MATCH                                                              */
 /* -------------------------------------------------------------------------- */
-
-export function isKeywordPresent(resumeText: string, keyword: string): boolean {
+export function isKeywordPresent(
+  resumeText: string,
+  keyword: string
+): boolean {
   const haystack = ` ${normalize(resumeText)} `;
   const needle = normalize(keyword);
-
   if (!needle) return false;
-
+  // Check for an exact keyword match first.
   if (haystack.includes(` ${needle} `)) return true;
-
-  const compactNeedle = needle.replace(/\s+/g, '');
-  const compactHaystack = haystack.replace(/\s+/g, '');
-
-  if (
-    compactNeedle.length >= 4 &&
-    compactHaystack.includes(compactNeedle)
-  ) {
-    return true;
-  }
-
-  const words = needle
-    .split(' ')
-    .filter((word) => word.length > 2);
-
-  return (
-    words.length > 1 &&
-    words.every((word) => haystack.includes(` ${word} `))
-  );
+  // Check explicitly approved related technologies.
+  const aliases = keywordAliases[needle] ?? [];
+  return aliases.some((alias) => {
+    const normalizedAlias = normalize(alias);
+    return haystack.includes(` ${normalizedAlias} `);
+  });
 }
+
 
 export function calculateKeywordCoverage(
   resumeText: string,
@@ -98,73 +91,65 @@ export function calculateKeywordCoverage(
 /* -------------------------------------------------------------------------- */
 /* READABILITY                                                                */
 /* -------------------------------------------------------------------------- */
-
-function estimateSyllables(word: string): number {
-  const cleaned = word
-    .toLowerCase()
-    .replace(/[^a-z]/g, '');
-
-  if (!cleaned) return 0;
-  if (cleaned.length <= 3) return 1;
-
-  const stripped = cleaned
-    .replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/i, '')
-    .replace(/^y/i, '');
-
-  const groups = stripped.match(/[aeiouy]{1,2}/g);
-
-  return Math.max(1, groups?.length ?? 1);
-}
-
 export function calculateReadability(resumeText: string): number {
-  const words =
-    resumeText.match(/\b[A-Za-z][A-Za-z'-]*\b/g) ?? [];
+  const text = resumeText.trim();
+
+  if (!text) return 0;
+  // Evaluate individual resume lines and sentences.
+  const statements = text
+    .split(/\r?\n/)
+    .flatMap((line) => line.split(/[.!?]+(?:\s|$)/))
+    .map((line) =>
+      line.trim().replace(/^[-•▪◦*]\s*/, '')
+    )
+    .filter((line) => line.split(/\s+/).length >= 4);
+
+  if (statements.length === 0) return 0;
+
+  const words = statements.flatMap(
+    (statement) =>
+      statement.match(/[A-Za-z][A-Za-z'-]*/g) ?? []
+  );
 
   if (words.length === 0) return 0;
 
-  const punctuationSentences =
-    (resumeText.match(/[.!?]+(?:\s|$)/g) ?? []).length;
+  // Long statements are harder to scan.
+  const longStatements = statements.filter(
+    (statement) => statement.split(/\s+/).length > 28
+  ).length;
 
-  const lineSentences = resumeText
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 20).length;
+  const veryLongStatements = statements.filter(
+    (statement) => statement.split(/\s+/).length > 40
+  ).length;
 
-  const sentences = Math.max(
-    1,
-    punctuationSentences,
-    Math.round(lineSentences * 0.7)
+  // Technical vocabulary receives only a mild penalty.
+  const longWords = words.filter(
+    (word) => word.length >= 12
+  ).length;
+
+  const longStatementPenalty = Math.round(
+    (longStatements / statements.length) * 25
   );
 
-  const syllables = words.reduce(
-    (sum, word) => sum + estimateSyllables(word),
-    0
+  const veryLongPenalty = Math.round(
+    (veryLongStatements / statements.length) * 15
   );
 
-  const raw =
-    206.835 -
-    1.015 * (words.length / sentences) -
-    84.6 * (syllables / words.length);
+  const vocabularyPenalty = Math.round(
+    (longWords / words.length) * 20
+  );
 
-  /*
-   * Extremely high Flesch scores are not necessarily ideal for resumes.
-   * Bring the score into a practical ATS-oriented range.
-   */
-  if (raw >= 60 && raw <= 85) {
-    return clamp(90 + (raw - 60) * 0.4);
-  }
+  const score =
+    90 -
+    longStatementPenalty -
+    veryLongPenalty -
+    vocabularyPenalty;
 
-  if (raw > 85) {
-    return clamp(100 - (raw - 85) * 0.5);
-  }
-
-  return clamp(raw * 1.25);
+  return clamp(score);
 }
-
 /* -------------------------------------------------------------------------- */
 /* SECTION COMPLETENESS                                                       */
 /* -------------------------------------------------------------------------- */
-
 const SECTION_PATTERNS: Array<RegExp> = [
   /\b(summary|profile|objective|about me)\b/i,
 

@@ -18,7 +18,27 @@ export async function analyzeResume(
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(data?.error || 'Analysis request failed.');
+    const data = await response.json().catch(() => ({}));
+
+    const error = new Error(
+      data.error || 'Analysis failed.'
+    );
+
+    (
+      error as Error & {
+        code?: string;
+        status?: number;
+      }
+    ).code = data.code;
+
+    (
+      error as Error & {
+        code?: string;
+        status?: number;
+      }
+    ).status = response.status;
+
+    throw error;
   }
 
   return data as AnalysisResult;
