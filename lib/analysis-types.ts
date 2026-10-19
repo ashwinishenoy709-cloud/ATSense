@@ -1,14 +1,17 @@
 export type KeywordCategory = 'technical' | 'soft' | 'tools' | 'domain';
+
 export type Importance = 'high' | 'medium' | 'low';
+
 export type ScoreTier = 'green' | 'yellow' | 'red';
 
 export interface ATSKeyword {
   keyword: string;
   category: KeywordCategory;
   importance: Importance;
+  requirementType: 'required' | 'preferred';
 }
 
-export interface MissingKeyword extends ATSKeyword {}
+export type MissingKeyword = ATSKeyword;
 
 export interface GrammarIssue {
   id: string;
@@ -28,19 +31,45 @@ export interface ActionableFix {
   completed: boolean;
 }
 
+/*
+ * Individual ATS scoring components.
+ * Each value ranges from 0 to 100.
+ */
 export interface AnalysisMetrics {
   keywordMatch: number;
-  readabilityIndex: number;
+
+  experienceRelevance: number;
+
   formattingQuality: number;
+
+  sectionCompleteness: number;
+
+  readabilityIndex: number;
+
+  quantifiedAchievements: number;
+
+  actionVerbQuality: number;
+
+  contactParsing: number;
 }
 
 export interface AnalysisMeta {
   provider: 'Google Gemini';
+
   model: string;
+
   mode: 'job-targeted' | 'general-benchmark';
+
   resumeCharacters: number;
+
   jobDescriptionProvided: boolean;
+
+  /*
+   * Kept here for compatibility with the existing UI.
+   * The same value is also available in metrics.
+   */
   sectionCompleteness: number;
+
   keywordSignalsEvaluated: number;
 }
 
@@ -51,14 +80,24 @@ export interface AnalysisRequest {
 
 export interface AnalysisResult {
   atsScore: number;
+
   scoreTier: ScoreTier;
+
   scoreLabel: string;
+
   scoreSummary: string;
+
   metrics: AnalysisMetrics;
+
   missingKeywords: MissingKeyword[];
+
   grammarIssues: GrammarIssue[];
+
   actionableFixes: ActionableFix[];
+
   analyzedAt: string;
+
   fileName: string;
+
   analysisMeta: AnalysisMeta;
 }
