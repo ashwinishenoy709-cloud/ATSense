@@ -158,15 +158,15 @@ export function MetricsGrid({ metrics }: MetricsGridProps) {
 
       <MetricCard
         icon={<LayoutTemplate className="h-4 w-4 text-chart-2" />}
-        label="ATS Formatting & Parsing"
+        label="ATS Text Structure"
         value={metrics.formattingQuality}
         weight={15}
         note={
           metrics.formattingQuality >= 80
-            ? 'Strong text structure and section organization for ATS parsing.'
+            ? 'Strong extracted-text structure, with recognizable sections and consistent formatting signals.'
             : metrics.formattingQuality >= 60
-              ? 'Mostly parseable structure with some ATS formatting improvements available.'
-              : 'Text structure may make automated parsing less reliable.'
+              ? 'Generally readable extracted-text structure, with some improvements possible.'
+              : 'Extracted-text structure may benefit from clearer headings, bullets, and organization.'
         }
         colorClass="bg-chart-2/10"
       />
@@ -245,6 +245,17 @@ export function MetricsGrid({ metrics }: MetricsGridProps) {
         }
         colorClass="bg-chart-5/10"
       />
+       <div className="sm:col-span-2 rounded-xl border border-border/60 bg-muted/30 p-4">
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          <span className="font-semibold text-foreground">
+            About ATS Text Structure:
+          </span>{' '}
+          This score estimates the quality of extracted resume text using
+          section headings, bullet points, content density, and structural
+          consistency. It does not verify visual formatting such as fonts,
+          margins, tables, columns, or text boxes.
+        </p>
+      </div>
     </div>
   );
 }
