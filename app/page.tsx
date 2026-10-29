@@ -17,7 +17,10 @@ import { MetricsGrid } from '@/components/metrics-grid';
 import { MissingKeywordsTab } from '@/components/results/missing-keywords-tab';
 import { GrammarToneTab } from '@/components/results/grammar-tone-tab';
 import { ActionableFixesTab } from '@/components/results/actionable-fixes-tab';
-import { analyzeResume } from '@/lib/analysis-service';
+import {
+  analyzeResume,
+  getAnalysisErrorMessage,
+} from '@/lib/analysis-service';
 import type { AnalysisResult } from '@/lib/analysis-types';
 
 export default function Home() {
@@ -31,13 +34,19 @@ export default function Home() {
   ) => {
     setIsAnalyzing(true);
     setError(null);
+    // Clear the previous analysis so old results
+    // are not mistaken for the new upload.
+    setResult(null);
+
     try {
-      const analysis = await analyzeResume({ file, jobDescription });
+      const analysis = await analyzeResume({
+        file,
+        jobDescription,
+      });
+
       setResult(analysis);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Something went wrong during analysis.';
-      setError(message);
+      setError(getAnalysisErrorMessage(err));
     } finally {
       setIsAnalyzing(false);
     }
@@ -76,8 +85,23 @@ export default function Home() {
 
         {/* Error state */}
         {error && (
-          <div className="mb-8 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-center text-sm text-destructive">
-            {error}
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="mb-8 rounded-xl border border-destructive/30 bg-destructive/5 p-4"
+          >
+            <p className="text-sm font-semibold text-destructive">
+              Resume Analysis Failed
+            </p>
+
+            <p className="mt-1 text-sm leading-relaxed text-destructive">
+              {error}
+            </p>
+
+            <p className="mt-2 text-xs text-muted-foreground">
+              Check the message above, then try analyzing your
+              resume again.
+            </p>
           </div>
         )}
 
@@ -202,7 +226,7 @@ export default function Home() {
 
                   <TabsContent value="keywords">
                     <MissingKeywordsTab
-                      keywords={result.missingKeywords}
+                      keywordMatches={result.keywordMatches}
                       jobDescriptionProvided={result.analysisMeta.jobDescriptionProvided}
                     />
                   </TabsContent>

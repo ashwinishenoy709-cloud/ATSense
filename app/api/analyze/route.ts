@@ -17,6 +17,12 @@ import {
   getScoreTier,
   isKeywordPresent,
 } from '@/lib/ats-scoring';
+import {
+  isGroundedResumeExcerpt,
+  isSupportedGrammarExplanation,
+  classifyKeywordRequirement,
+  getKeywordMatchStatus,
+} from '@/lib/analysis-validation';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -200,20 +206,6 @@ function dedupeKeywords(keywords: ATSKeyword[]): ATSKeyword[] {
   });
 }
 
-function normalizeForGrounding(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9+#\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function isExactResumeExcerpt(resumeText: string, excerpt: string): boolean {
-  const normalizedResume = normalizeForGrounding(resumeText);
-  const normalizedExcerpt = normalizeForGrounding(excerpt);
-  return normalizedExcerpt.length >= 8 && normalizedResume.includes(normalizedExcerpt);
-}
-
 function normalizeValidationText(text: string): string {
   return text
     .toLowerCase()
@@ -274,52 +266,6 @@ function isMeaningfulKeyword(keyword: string): boolean {
   return true;
 }
 
-function hasRequiredLanguage(
-  jobDescription: string,
-  keyword: string
-): boolean {
-  const jd = normalizeValidationText(jobDescription);
-  const target = normalizeValidationText(keyword);
-
-  const index = jd.indexOf(target);
-
-  if (index === -1) {
-    return false;
-  }
-
-  const context = jd.slice(
-    Math.max(0, index - 300),
-    Math.min(jd.length, index + target.length + 300)
-  );
-
-  return /\b(required|mandatory|essential|must have|must-have|required qualification|requirement|requirements|need to have|must possess)\b/i.test(
-    context
-  );
-}
-
-function hasPreferredLanguage(
-  jobDescription: string,
-  keyword: string
-): boolean {
-  const jd = normalizeValidationText(jobDescription);
-  const target = normalizeValidationText(keyword);
-
-  const index = jd.indexOf(target);
-
-  if (index === -1) {
-    return false;
-  }
-
-  const context = jd.slice(
-    Math.max(0, index - 300),
-    Math.min(jd.length, index + target.length + 300)
-  );
-
-  return /\b(preferred|desirable|nice to have|nice-to-have|bonus|plus|advantage|preferred qualification)\b/i.test(
-    context
-  );
-}
-
 function validateGeminiAnalysis(
   data: z.infer<typeof aiResponseSchema>,
   resumeText: string,
@@ -346,56 +292,25 @@ function validateGeminiAnalysis(
 
       return isKeywordPresent(jobDescription, item.keyword);
     })
-    .map((item) => {
-      if (!jobDescription.trim()) {
-        return item;
-      }
-
-      const clearlyRequired = hasRequiredLanguage(
-        jobDescription,
-        item.keyword
-      );
-
-      const clearlyPreferred = hasPreferredLanguage(
-        jobDescription,
-        item.keyword
-      );
-
-      let requirementType = item.requirementType;
-
-      /*
-       * Never allow Gemini to call something "required"
-       * when the JD does not provide supporting language.
-       */
-      if (
-        requirementType === 'required' &&
-        !clearlyRequired
-      ) {
-        requirementType = clearlyPreferred
-          ? 'preferred'
-          : 'preferred';
-      }
-
-      /*
-       * If the JD clearly says the skill is required,
-       * prefer the deterministic JD evidence.
-       */
-      if (clearlyRequired) {
-        requirementType = 'required';
-      }
-
-      return {
-        ...item,
-        requirementType,
-      };
-    });
+    .map((item) => ({
+      ...item,
+      requirementType: jobDescription.trim()
+        ? classifyKeywordRequirement(
+            jobDescription,
+            item.keyword
+          )
+        : item.requirementType,
+    }));
 
   const grammarIssues = data.grammarIssues
     .filter((issue) =>
-      isExactResumeExcerpt(
+      isGroundedResumeExcerpt(
         resumeText,
         issue.original
       )
+    )
+    .filter((issue) =>
+      isSupportedGrammarExplanation(issue)
     )
     .filter(
       (issue) =>
@@ -406,6 +321,7 @@ function validateGeminiAnalysis(
         )
     )
     .slice(0, 8);
+
 
   const seenFixes = new Set<string>();
 
@@ -752,6 +668,13 @@ export async function POST(req: NextRequest) {
     }
 
     const keywordCoverage = calculateKeywordCoverage(resumeText, keywords);
+    const keywordMatches = keywords.map((keyword) => ({
+      ...keyword,
+      matchStatus: getKeywordMatchStatus(
+        resumeText,
+        keyword.keyword
+      ),
+    }));
     const experienceRelevance = calculateExperienceRelevance(
       resumeText,
       keywords
@@ -774,12 +697,10 @@ export async function POST(req: NextRequest) {
       contactParsing,
     });
 
-    const grammarIssues = aiAnalysis.data.grammarIssues
-      .filter((issue) => isExactResumeExcerpt(resumeText, issue.original))
-      .map((issue, index) => ({
-        ...issue,
-        id: `g${index + 1}`,
-      }));
+    const grammarIssues = aiAnalysis.data.grammarIssues.map((issue, index) => ({
+      ...issue,
+      id: `g${index + 1}`,
+    }));
 
     const actionableFixes = aiAnalysis.data.actionableFixes.map((fix, index) => ({
       ...fix,
@@ -809,6 +730,7 @@ export async function POST(req: NextRequest) {
         actionVerbQuality,
         contactParsing,
       },
+      keywordMatches,
       missingKeywords: keywordCoverage.missing,
       grammarIssues,
       actionableFixes,

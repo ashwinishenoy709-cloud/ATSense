@@ -12,6 +12,11 @@ export interface ATSKeyword {
 }
 
 export type MissingKeyword = ATSKeyword;
+export type KeywordMatchStatus = 'exact' | 'related' | 'missing';
+
+export interface KeywordMatch extends ATSKeyword {
+  matchStatus: KeywordMatchStatus;
+}
 
 export interface GrammarIssue {
   id: string;
@@ -31,15 +36,20 @@ export interface ActionableFix {
   completed: boolean;
 }
 
-/*
- * Individual ATS scoring components.
- * Each value ranges from 0 to 100.
- */
 export interface AnalysisMetrics {
   keywordMatch: number;
 
   experienceRelevance: number;
 
+  /**
+   * Text-based ATS formatting estimate (0–100).
+   *
+   * Evaluates extracted text structure, including section headings,
+   * bullet consistency, content density, and unusual characters.
+   *
+   * Does not verify visual formatting such as fonts, margins,
+   * tables, columns, or text boxes.
+   */
   formattingQuality: number;
 
   sectionCompleteness: number;
@@ -64,10 +74,6 @@ export interface AnalysisMeta {
 
   jobDescriptionProvided: boolean;
 
-  /*
-   * Kept here for compatibility with the existing UI.
-   * The same value is also available in metrics.
-   */
   sectionCompleteness: number;
 
   keywordSignalsEvaluated: number;
@@ -89,6 +95,7 @@ export interface AnalysisResult {
 
   metrics: AnalysisMetrics;
 
+  keywordMatches: KeywordMatch[];
   missingKeywords: MissingKeyword[];
 
   grammarIssues: GrammarIssue[];
