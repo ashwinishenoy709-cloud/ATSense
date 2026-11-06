@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Activity, Moon, Sun } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
+import Image from 'next/image';
 import { useTheme } from 'next-themes';
 
 export function Header() {
@@ -30,18 +31,17 @@ export function Header() {
       <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/95 backdrop-blur-md">
         <div className="mx-auto flex min-h-[64px] w-full max-w-6xl items-center justify-between gap-3 px-3 py-2 sm:px-6">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
-              <Activity
-                className="h-5 w-5 text-primary-foreground"
-                aria-hidden="true"
-              />
-            </div>
+            <Image
+              src="/atsense-mark.svg"
+              alt=""
+              width={36}
+              height={36}
+              className="h-9 w-9 shrink-0 rounded-lg"
+              priority
+            />
 
-            <span className="min-w-0 truncate text-sm font-bold tracking-tight text-foreground sm:text-xl">
-              Resume Pulse
-              <span className="hidden text-accent sm:inline">
-                {' '}AI
-              </span>
+            <span className="min-w-0 truncate text-lg font-bold tracking-tight text-foreground sm:text-xl">
+              AT<span className="text-accent">Sense</span>
             </span>
           </div>
 

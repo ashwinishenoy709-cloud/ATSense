@@ -282,7 +282,7 @@ export default function Home() {
 
       <footer className="border-t border-border/60 py-6">
         <div className="mx-auto max-w-6xl px-4 text-center text-xs text-muted-foreground sm:px-6">
-          Resume Pulse AI — AI-assisted ATS compatibility estimate · Powered by Google Gemini
+          ATSense — AI-assisted ATS compatibility estimate · Powered by Google Gemini
         </div>
       </footer>
     </div>
