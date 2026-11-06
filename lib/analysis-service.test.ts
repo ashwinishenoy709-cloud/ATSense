@@ -74,6 +74,26 @@ describe('Analysis API Error Handling', () => {
     });
   });
 
+  it('handles Gemini timeouts', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: 'Gemini took too long to respond.',
+            code: 'GEMINI_TIMEOUT',
+          }),
+          { status: 504 }
+        )
+      )
+    );
+
+    await expect(analyzeResume({ file })).rejects.toMatchObject({
+      code: 'GEMINI_TIMEOUT',
+      status: 504,
+    });
+  });
+
   it('handles non-JSON server errors', async () => {
     vi.stubGlobal(
       'fetch',

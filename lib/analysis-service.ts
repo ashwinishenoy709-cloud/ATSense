@@ -16,6 +16,8 @@ export class AnalysisServiceError extends Error {
 }
 
 const knownErrorMessages: Record<string, string> = {
+  GEMINI_TIMEOUT:
+    'Gemini took too long to respond. Please try the analysis again.',
   GEMINI_QUOTA_EXCEEDED:
     'Gemini API quota has been reached. Please wait for the quota to reset or use a project with available quota.',
 

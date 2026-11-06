@@ -32,6 +32,11 @@ import {
   validateResumeFile,
 } from '@/lib/upload-validation';
 import { parseBoundedFormData, RequestBodyTooLargeError } from '@/lib/request-body';
+import {
+  GEMINI_TOTAL_TIMEOUT_MS,
+  getGeminiRequestTimeoutMs,
+  isGeminiTimeoutError,
+} from '@/lib/gemini-timeout';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -369,6 +374,7 @@ function getGeminiErrorInfo(error: unknown): {
   status: number | null;
   message: string;
   kind:
+    | 'timeout'
     | 'quota'
     | 'rate-limit'
     | 'unavailable'
@@ -390,6 +396,10 @@ function getGeminiErrorInfo(error: unknown): {
   const status = statusMatch
     ? Number(statusMatch[1])
     : null;
+
+  if (isGeminiTimeoutError(error) || status === 408 || status === 504) {
+    return { status, message, kind: 'timeout' };
+  }
 
   if (
     status === 429 &&
@@ -488,9 +498,9 @@ async function runWithRetry<T>(
 
       const info = getGeminiErrorInfo(error);
 
-      // Don't repeatedly consume quota when the daily quota
-      // has already been exhausted.
-      if (info.kind === 'quota') {
+      // Don't retry exhausted quota or timed-out requests.
+      // A timed-out request may still incur provider usage.
+      if (info.kind === 'quota' || info.kind === 'timeout') {
         throw error;
       }
 
@@ -514,6 +524,7 @@ async function runGeminiAnalysis(params: {
   jobDescription: string;
 }) {
   const client = new GoogleGenAI({ apiKey: params.apiKey });
+  const deadline = Date.now() + GEMINI_TOTAL_TIMEOUT_MS;
   const input = `Analyze the following resume. If a target job description is present, identify only meaningful ATS signals such as explicit skills, tools, methodologies, certifications, domain terms, and clearly stated soft-skill requirements; omit boilerplate language and generic filler words.
 
 --- RESUME TEXT ---
@@ -542,6 +553,7 @@ ${params.jobDescription || '(Not provided. Use a conservative role-relevant ATS 
             },
             {
               retries: { strategy: 'none' },
+              timeout_ms: getGeminiRequestTimeoutMs(deadline),
             }
           ),
         1
@@ -810,6 +822,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
       const info = getGeminiErrorInfo(error);
+      if (info.kind === 'timeout') {
+        return NextResponse.json(
+          {
+            error: 'Gemini took too long to respond. Please try the analysis again.',
+            code: 'GEMINI_TIMEOUT',
+          },
+          { status: 504 }
+        );
+      }
       if (info.kind === 'quota') {
         return NextResponse.json(
           {
