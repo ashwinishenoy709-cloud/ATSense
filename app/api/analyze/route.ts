@@ -578,17 +578,24 @@ ${params.jobDescription || '(Not provided. Use a conservative role-relevant ATS 
     : new Error('No configured Gemini model is currently available.');
 }
 
+
 async function extractResumeText(buffer: Buffer, isPdf: boolean) {
   if (isPdf) {
     const pdfParse = (await import('pdf-parse')).default;
-    const data = await pdfParse(buffer);
+
+    // Use a standard Uint8Array for PDF.js compatibility.
+    const pdfBytes = Uint8Array.from(buffer);
+    const data = await pdfParse(pdfBytes);
+
     return data.text;
   }
 
   const mammoth = await import('mammoth');
   const result = await mammoth.extractRawText({ buffer });
+
   return result.value;
 }
+
 
 export async function POST(req: NextRequest) {
   try {
