@@ -24,12 +24,17 @@ import {
   getKeywordMatchStatus,
 } from '@/lib/analysis-validation';
 
+import {
+  hasValidFileSignature,
+  validateDeclaredContentLength,
+  validateJobDescription,
+  validateResumeFile,
+} from '@/lib/upload-validation';
+
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_RESUME_CHARS = 60_000;
-const MAX_JOB_DESCRIPTION_CHARS = 30_000;
 
 const configuredModel = process.env.GEMINI_MODEL?.trim();
 const MODEL_CANDIDATES = Array.from(
@@ -595,39 +600,79 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const formData = await req.formData();
-    const file = formData.get('file') as File | null;
-    const rawJobDescription = (formData.get('jobDescription') as string) || '';
-    const jobDescription = rawJobDescription.trim().slice(0, MAX_JOB_DESCRIPTION_CHARS);
-
-    if (!file) {
-      return NextResponse.json({ error: 'No resume file was uploaded.' }, { status: 400 });
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
+    const contentType = req.headers.get('content-type') ?? '';
+    if (!/^multipart\/form-data(?:\s*;|$)/i.test(contentType)) {
       return NextResponse.json(
-        { error: 'Resume file is too large. Maximum size is 10 MB.' },
-        { status: 413 }
+        { error: 'Expected a multipart form upload.', code: 'INVALID_CONTENT_TYPE' },
+        { status: 415 }
       );
     }
 
-    const fileName = file.name;
-    const lowerName = fileName.toLowerCase();
-    const isPdf = file.type === 'application/pdf' || lowerName.endsWith('.pdf');
-    const isDocx =
-      file.type ===
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-      lowerName.endsWith('.docx');
-
-    if (!isPdf && !isDocx) {
+    // Content-Length is an early rejection only. A production host must also
+    // enforce a real request-body limit, including chunked requests.
+    const lengthError = validateDeclaredContentLength(
+      req.headers.get('content-length')
+    );
+    if (lengthError) {
       return NextResponse.json(
-        { error: 'Only PDF and DOCX resume files are supported.' },
+        { error: lengthError.message, code: lengthError.code },
+        { status: lengthError.status }
+      );
+    }
+
+    let formData: FormData;
+    try {
+      formData = await req.formData();
+    } catch {
+      return NextResponse.json(
+        { error: 'Unable to read the upload form.', code: 'INVALID_FORM_DATA' },
         { status: 400 }
       );
     }
 
+    const file = formData.get('file');
+    if (!file || typeof file === 'string') {
+      return NextResponse.json(
+        { error: 'No resume file was uploaded.', code: 'MISSING_RESUME' },
+        { status: 400 }
+      );
+    }
+
+    const jobCheck = validateJobDescription(formData.get('jobDescription'));
+    if ('error' in jobCheck) {
+      return NextResponse.json(
+        { error: jobCheck.error.message, code: jobCheck.error.code },
+        { status: jobCheck.error.status }
+      );
+    }
+    const jobDescription = jobCheck.value;
+
+    const fileCheck = validateResumeFile(file);
+    if ('error' in fileCheck) {
+      return NextResponse.json(
+        { error: fileCheck.error.message, code: fileCheck.error.code },
+        { status: fileCheck.error.status }
+      );
+    }
+
+    const fileName = file.name;
     const buffer = Buffer.from(await file.arrayBuffer());
-    const extractedText = await extractResumeText(buffer, isPdf);
+    if (!hasValidFileSignature(buffer, fileCheck.kind)) {
+      return NextResponse.json(
+        { error: 'File contents do not match a valid PDF or DOCX upload.', code: 'INVALID_FILE_SIGNATURE' },
+        { status: 400 }
+      );
+    }
+
+    let extractedText: string;
+    try {
+      extractedText = await extractResumeText(buffer, fileCheck.kind === 'pdf');
+    } catch {
+      return NextResponse.json(
+        { error: 'This resume could not be read. Try exporting it again as a PDF or DOCX.', code: 'RESUME_PARSE_FAILED' },
+        { status: 422 }
+      );
+    }
     const resumeText = extractedText
       .replace(/\u0000/g, '')
       .replace(/[ \t]+\n/g, '\n')
@@ -805,7 +850,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      console.error('ATSense /api/analyze error:', error);
+      // Avoid logging document content or upstream error payloads.
+      console.error('ATSense /api/analyze error type:', error instanceof Error ? error.name : 'unknown');
 
       return NextResponse.json(
         {
