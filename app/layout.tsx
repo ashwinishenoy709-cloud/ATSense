@@ -6,13 +6,13 @@ import { ThemeProvider } from '@/components/theme-provider';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Resume Pulse AI — ATS Simulator & Resume Analyzer',
+  title: 'ATSense — AI Resume Analyzer',
   description:
-    'Analyze your resume against ATS systems with AI-powered scoring, keyword matching, grammar suggestions, and actionable fixes.',
+    'ATSense provides AI-assisted resume feedback, keyword matching, grammar suggestions, and an estimated ATS compatibility score.',
   openGraph: {
-    title: 'Resume Pulse AI — ATS Simulator & Resume Analyzer',
+    title: 'ATSense — AI Resume Analyzer',
     description:
-      'Analyze your resume against ATS systems with AI-powered scoring, keyword matching, grammar suggestions, and actionable fixes.',
+      'ATSense provides AI-assisted resume feedback, keyword matching, grammar suggestions, and an estimated ATS compatibility score.',
   },
 };
 

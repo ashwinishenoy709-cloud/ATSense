@@ -10,86 +10,119 @@ interface ScoreGaugeProps {
 }
 
 export function ScoreGauge({ result }: ScoreGaugeProps) {
-  const [animatedScore, setAnimatedScore] = React.useState(0);
+  const score = Math.max(0, Math.min(100, result.atsScore));
+  const [displayScore, setDisplayScore] = React.useState(0);
   const color = getScoreColor(result.scoreTier);
 
   React.useEffect(() => {
-    const duration = 1200;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setDisplayScore(score);
+      return;
+    }
+
+    const duration = 1000;
     const start = performance.now();
-    let raf: number;
+    let frame = 0;
 
     const animate = (now: number) => {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
+      const progress = Math.min((now - start) / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
-      setAnimatedScore(Math.round(eased * result.atsScore));
-      if (progress < 1) raf = requestAnimationFrame(animate);
+
+      setDisplayScore(Math.round(score * eased));
+
+      if (progress < 1) {
+        frame = requestAnimationFrame(animate);
+      }
     };
 
-    raf = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(raf);
-  }, [result.atsScore]);
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+  }, [score]);
 
   const radius = 80;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (animatedScore / 100) * circumference;
+  const offset = circumference * (1 - displayScore / 100);
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4">
-      <div className="relative h-[200px] w-[200px]">
+    <div className="flex w-full flex-col items-center gap-5">
+      <div
+        role="meter"
+        aria-label="Estimated ATS compatibility score"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={score}
+        className="relative h-[200px] w-[200px]"
+      >
         <svg
-          className="h-full w-full -rotate-90"
           viewBox="0 0 200 200"
+          className="h-full w-full -rotate-90"
+          aria-hidden="true"
         >
-          {/* Background circle */}
           <circle
             cx="100"
             cy="100"
             r={radius}
             fill="none"
-            strokeWidth="14"
+            strokeWidth="13"
             className="stroke-muted"
           />
-          {/* Progress circle */}
           <circle
             cx="100"
             cy="100"
             r={radius}
             fill="none"
-            strokeWidth="14"
             stroke={color}
+            strokeWidth="13"
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={offset}
-            style={{ transition: 'stroke-dashoffset 0.1s linear' }}
           />
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span
-            className="text-5xl font-bold tabular-nums"
-            style={{ color }}
-          >
-            {animatedScore}
-          </span>
+
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 flex flex-col items-center justify-center"
+        >
+          <div className="flex items-baseline gap-1">
+            <span
+              className="text-5xl font-bold tabular-nums"
+              style={{ color }}
+            >
+              {displayScore}
+            </span>
+            <span className="text-lg text-muted-foreground">
+              /100
+            </span>
+          </div>
+
           <span className="mt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            ATS Score
+            ATS Compatibility
           </span>
         </div>
       </div>
 
-      <div className="text-center">
-        <div
+      <div className="w-full space-y-3 text-center">
+        <span
           className={cn(
-            'inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold',
-            result.scoreTier === 'green' && 'bg-success/10 text-success',
-            result.scoreTier === 'yellow' && 'bg-warning/10 text-warning',
-            result.scoreTier === 'red' && 'bg-destructive/10 text-destructive'
+            'inline-flex rounded-full px-4 py-1.5 text-xs font-semibold',
+            result.scoreTier === 'green' &&
+              'bg-success/10 text-success',
+            result.scoreTier === 'yellow' &&
+              'bg-warning/10 text-warning',
+            result.scoreTier === 'red' &&
+              'bg-destructive/10 text-destructive'
           )}
         >
           {result.scoreLabel}
-        </div>
-        <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
+        </span>
+
+        <p className="mx-auto max-w-sm text-sm leading-relaxed text-muted-foreground">
           {result.scoreSummary}
+        </p>
+
+        <p className="mx-auto max-w-sm border-t border-border/60 pt-3 text-xs leading-relaxed text-muted-foreground">
+          This score is an estimated compatibility measure,
+          not a guarantee of passing an employer&apos;s ATS.
         </p>
       </div>
     </div>

@@ -63,12 +63,12 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen min-w-0 bg-background">
       <Header />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <main id="main-content" tabIndex={-1} className="mx-auto w-full min-w-0 max-w-6xl px-3 py-5 sm:px-6 sm:py-8">
         {/* Upload Section */}
-        <section className="mb-8">
+        <section aria-label="Resume upload" className="mb-6 sm:mb-8">
           <Card className="border-border/60 shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg">Upload Your Resume</CardTitle>
@@ -141,9 +141,9 @@ export default function Home() {
 
         {/* Results Dashboard */}
         {result && !isAnalyzing && (
-          <section className="space-y-6 animate-fade-in-up">
+          <section id="analysis-results" aria-label="Resume analysis results" className="min-w-0 space-y-6 animate-fade-in-up">
             <Card className="border-accent/20 bg-accent/5 shadow-sm">
-              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <CardContent className="flex min-w-0 flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-success/10">
                     <CheckCircle2 className="h-5 w-5 text-success" />
@@ -155,10 +155,10 @@ export default function Home() {
                     </p>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1">
-                    <FileText className="h-3 w-3" />
-                    {result.fileName}
+                <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1">
+                    <FileText className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 break-all">{result.fileName}</span>
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1">
                     <Cpu className="h-3 w-3" />
@@ -175,7 +175,7 @@ export default function Home() {
             </Card>
 
             {/* Score + Metrics */}
-            <div className="grid gap-6 lg:grid-cols-5">
+            <div className="grid min-w-0 gap-4 lg:grid-cols-5 lg:gap-6">
               <Card className="lg:col-span-2 border-border/60 shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-base">ATS Match Score</CardTitle>
@@ -188,7 +188,7 @@ export default function Home() {
                 </CardContent>
               </Card>
 
-              <div className="flex flex-col gap-4 lg:col-span-3">
+              <div className="flex min-w-0 flex-col gap-4 lg:col-span-3">
                 <Card className="border-border/60 shadow-sm">
                   <CardHeader>
                     <CardTitle className="text-base">ATS Score Breakdown</CardTitle>
@@ -212,14 +212,14 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="keywords" className="w-full">
-                  <TabsList className="mb-6 grid h-auto w-full grid-cols-3 gap-1">
-                    <TabsTrigger value="keywords" className="text-xs sm:text-sm">
+                  <TabsList aria-label="Detailed analysis categories" className="mb-6 grid h-auto w-full grid-cols-3 gap-1 rounded-xl p-1">
+                    <TabsTrigger value="keywords" className="min-h-[44px] min-w-0 whitespace-normal px-1 py-2 text-center text-[11px] leading-tight sm:px-3 sm:text-sm">
                       Missing Keywords
                     </TabsTrigger>
-                    <TabsTrigger value="grammar" className="text-xs sm:text-sm">
+                    <TabsTrigger value="grammar" className="min-h-[44px] min-w-0 whitespace-normal px-1 py-2 text-center text-[11px] leading-tight sm:px-3 sm:text-sm">
                       Grammar & Tone
                     </TabsTrigger>
-                    <TabsTrigger value="fixes" className="text-xs sm:text-sm">
+                    <TabsTrigger value="fixes" className="min-h-[44px] min-w-0 whitespace-normal px-1 py-2 text-center text-[11px] leading-tight sm:px-3 sm:text-sm">
                       Actionable Fixes
                     </TabsTrigger>
                   </TabsList>
@@ -282,7 +282,7 @@ export default function Home() {
 
       <footer className="border-t border-border/60 py-6">
         <div className="mx-auto max-w-6xl px-4 text-center text-xs text-muted-foreground sm:px-6">
-          Resume Pulse AI — AI-assisted ATS compatibility estimate · Powered by Google Gemini
+          ATSense — AI-assisted ATS compatibility estimate · Powered by Google Gemini
         </div>
       </footer>
     </div>

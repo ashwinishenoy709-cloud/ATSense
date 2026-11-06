@@ -9,123 +9,204 @@ interface GrammarToneTabProps {
   issues: GrammarIssue[];
 }
 
+type SeverityFilter = 'all' | GrammarIssue['severity'];
+
 const severityConfig = {
   critical: {
     label: 'Critical',
-    color: 'bg-destructive/10 text-destructive border-destructive/20',
-    icon: <AlertTriangle className="h-3.5 w-3.5" />,
+    style: 'border-destructive/20 bg-destructive/10 text-destructive',
   },
   moderate: {
     label: 'Moderate',
-    color: 'bg-warning/10 text-warning border-warning/20',
-    icon: <Info className="h-3.5 w-3.5" />,
+    style: 'border-warning/20 bg-warning/10 text-warning',
   },
   minor: {
     label: 'Minor',
-    color: 'bg-muted text-muted-foreground border-border',
-    icon: <Info className="h-3.5 w-3.5" />,
+    style: 'border-border bg-muted text-muted-foreground',
   },
 };
 
-export function GrammarToneTab({ issues }: GrammarToneTabProps) {
-  const [copiedId, setCopiedId] = React.useState<string | null>(null);
+const severityOrder = {
+  critical: 0,
+  moderate: 1,
+  minor: 2,
+};
 
-  const copyToClipboard = async (text: string, id: string) => {
+export function GrammarToneTab({ issues }: GrammarToneTabProps) {
+  const [filter, setFilter] = React.useState<SeverityFilter>('all');
+  const [copiedId, setCopiedId] = React.useState<string | null>(null);
+  const [copyError, setCopyError] = React.useState<string | null>(null);
+
+  const filtered = [...issues]
+    .filter((issue) => filter === 'all' || issue.severity === filter)
+    .sort(
+      (a, b) =>
+        severityOrder[a.severity] - severityOrder[b.severity]
+    );
+
+  const copySuggestion = async (issue: GrammarIssue) => {
     try {
-      await navigator.clipboard.writeText(text);
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
+      await navigator.clipboard.writeText(issue.suggestion);
+      setCopiedId(issue.id);
+      setCopyError(null);
     } catch {
-      // Clipboard not available
+      setCopyError(issue.id);
+      setCopiedId(null);
     }
   };
 
+  const filters: SeverityFilter[] = [
+    'all',
+    'critical',
+    'moderate',
+    'minor',
+  ];
+
   return (
-    <div className="space-y-4">
-    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-      <span className="font-medium text-foreground">
-        {issues.length} {issues.length === 1 ? 'section' : 'sections'}
-      </span>
-      flagged for grammar, tone, or clarity improvements.
-    </div>
-      {issues.map((issue) => {
-        const sev = severityConfig[issue.severity];
-        return (
-          <div
-            key={issue.id}
-            className="overflow-hidden rounded-xl border border-border/60 bg-card animate-fade-in-up"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between gap-2 border-b border-border/60 bg-muted/30 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-foreground">
-                  {issue.section}
-                </span>
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
-                    sev.color
-                  )}
-                >
-                  {sev.icon}
-                  {sev.label}
-                </span>
-              </div>
-            </div>
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">
+          Grammar, Tone & Clarity
+        </h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {issues.length} suggested{' '}
+          {issues.length === 1 ? 'improvement' : 'improvements'}{' '}
+          identified for review.
+        </p>
+      </div>
 
-            {/* Original vs Suggested */}
-            <div className="grid gap-px bg-border/60 sm:grid-cols-2">
-              {/* Original */}
-              <div className="bg-card p-4">
-                <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                  <span className="h-2 w-2 rounded-full bg-destructive" />
-                  Original
-                </div>
-                <p className="text-sm leading-relaxed text-muted-foreground line-through decoration-muted-foreground/30">
-                  {issue.original}
-                </p>
-              </div>
+      <div className="flex flex-wrap gap-2">
+        {filters.map((item) => {
+          const count =
+            item === 'all'
+              ? issues.length
+              : issues.filter((issue) => issue.severity === item).length;
 
-              {/* Suggested */}
-              <div className="bg-success/5 p-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-success">
-                    <span className="h-2 w-2 rounded-full bg-success" />
-                    Suggested AI Rewrite
-                  </div>
-                  <button
-                    onClick={() => copyToClipboard(issue.suggestion, issue.id)}
-                    className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  >
-                    {copiedId === issue.id ? (
-                      <>
-                        <Check className="h-3 w-3" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3 w-3" />
-                        Copy
-                      </>
+          return (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setFilter(item)}
+              aria-pressed={filter === item}
+              className={cn(
+                'rounded-lg border px-3 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                filter === item
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-background text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {item === 'all'
+                ? 'All'
+                : severityConfig[item].label}{' '}
+              ({count})
+            </button>
+          );
+        })}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border p-8 text-center">
+          <p className="text-sm font-medium text-foreground">
+            No suggestions in this category
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            This does not guarantee the resume is free of writing errors.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filtered.map((issue) => {
+            const severity = severityConfig[issue.severity];
+
+            return (
+              <article
+                key={issue.id}
+                className="overflow-hidden rounded-xl border border-border/60 bg-card"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 bg-muted/20 px-4 py-3">
+                  <h4 className="text-sm font-semibold text-foreground">
+                    {issue.section}
+                  </h4>
+
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold',
+                      severity.style
                     )}
-                  </button>
+                  >
+                    {issue.severity === 'critical' ? (
+                      <AlertTriangle className="h-3 w-3" />
+                    ) : (
+                      <Info className="h-3 w-3" />
+                    )}
+                    {severity.label}
+                  </span>
                 </div>
-                <p className="text-sm leading-relaxed text-foreground">
-                  {issue.suggestion}
-                </p>
-              </div>
-            </div>
 
-            {/* Explanation */}
-            <div className="border-t border-border/60 bg-muted/20 px-4 py-3">
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                <span className="font-medium text-foreground">Why: </span>
-                {issue.explanation}
-              </p>
-            </div>
-          </div>
-        );
-      })}
+                <div className="grid sm:grid-cols-2">
+                  <div className="min-w-0 border-b border-border/60 p-4 sm:border-b-0 sm:border-r">
+                    <p className="mb-2 text-xs font-semibold text-muted-foreground">
+                      Original Excerpt
+                    </p>
+                    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
+                      {issue.original}
+                    </p>
+                  </div>
+
+                  <div className="min-w-0 bg-success/5 p-4">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-success">
+                        Suggested Rewrite
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={() => copySuggestion(issue)}
+                        aria-label={`Copy suggestion for ${issue.section}`}
+                        className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {copiedId === issue.id ? (
+                          <>
+                            <Check className="h-3 w-3" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3 w-3" />
+                            Copy
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
+                      {issue.suggestion}
+                    </p>
+                    {copyError === issue.id && (
+                      <p role="alert" className="mt-2 text-xs text-destructive">
+                        Could not copy. Please select the text manually.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t border-border/60 bg-muted/20 px-4 py-3">
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    <strong className="text-foreground">
+                      Why this is suggested:{' '}
+                    </strong>
+                    {issue.explanation}
+                  </p>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        These are AI-assisted suggestions. Review each rewrite for
+        accuracy before applying it to your resume.
+      </p>
     </div>
   );
 }

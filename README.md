@@ -1,4 +1,4 @@
-# Resume Pulse AI / ATSense
+# ATSense
 
 A Next.js single-page AI resume analyzer and ATS compatibility simulator. The app parses an uploaded PDF or DOCX resume, optionally compares it with a target job description, calculates ATS-style metrics from the actual extracted text, and uses Google Gemini for grounded keyword extraction, grammar/tone review, and actionable suggestions.
 

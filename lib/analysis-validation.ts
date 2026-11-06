@@ -114,7 +114,8 @@ export function classifyKeywordRequirement(
     /^(?:preferred(?:\s+(?:qualifications|skills|experience))?|nice[\s-]+to[\s-]+have(?:\s+skills)?|bonus(?:\s+skills)?|desirable(?:\s+skills)?)(?:\s*:\s*(.*))?$/i;
 
   const requiredHeading =
-    /^(?:requirements?|required(?:\s+(?:qualifications|skills|experience))?|minimum(?:\s+qualifications)?|must[\s-]+have(?:\s+skills)?|qualifications|essential(?:\s+skills)?)(?:\s*:\s*(.*))?$/i;
+    /^(?:requirements?|required(?:\s+(?:skills\s+and\s+qualifications|qualifications|skills|experience))?|minimum(?:\s+qualifications)?|must[\s-]+have(?:\s+skills)?|qualifications|essential(?:\s+skills)?)(?:\s*:\s*(.*))?$/i;
+
 
   const otherHeading =
     /^(?:responsibilities|about(?:\s+us|\s+the\s+role)?|benefits|what\s+we\s+offer|company\s+overview)\s*:?\s*$/i;

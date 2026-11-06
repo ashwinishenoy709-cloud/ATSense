@@ -148,6 +148,28 @@ Preferred Qualifications:
       )
     ).toBe('preferred');
   });
+  
+  it('recognizes required skills and qualifications heading', () => {
+    const jd = `
+  Required skills and qualifications:
+  - React and TypeScript
+  - Node.js and REST APIs
+  - SQL and relational database experience
+  - Git
+
+  Preferred qualifications:
+  - Docker
+  - AWS
+  `;
+
+    expect(classifyKeywordRequirement(jd, 'React')).toBe('required');
+    expect(classifyKeywordRequirement(jd, 'TypeScript')).toBe('required');
+    expect(classifyKeywordRequirement(jd, 'SQL')).toBe('required');
+    expect(classifyKeywordRequirement(jd, 'Git')).toBe('required');
+    expect(classifyKeywordRequirement(jd, 'Docker')).toBe('preferred');
+    expect(classifyKeywordRequirement(jd, 'AWS')).toBe('preferred');
+  });
+
 });
 
 describe('Keyword Match Status', () => {

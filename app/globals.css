@@ -160,3 +160,43 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
 }
+
+/* ATSense Phase 2: responsive accessibility and contrast */
+/* Higher-contrast status/accent colors for light and dark themes. */
+@layer base {
+  :root {
+    --accent: 243 64% 40%;
+    --success: 142 70% 28%;
+    --warning: 35 95% 30%;
+    --destructive: 0 74% 40%;
+  }
+
+  .dark {
+    --accent: 243 83% 77%;
+    --accent-foreground: 222 47% 11%;
+    --success: 142 70% 67%;
+    --success-foreground: 222 47% 11%;
+    --warning: 38 94% 72%;
+    --warning-foreground: 222 47% 11%;
+    --destructive: 0 85% 72%;
+    --destructive-foreground: 222 47% 11%;
+  }
+}
+
+/* Keyboard users can see which control has focus. */
+:where(a, button, input, select, textarea, [role="tab"]):focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Respect operating-system reduced-motion preferences. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

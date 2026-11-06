@@ -1,11 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { Search, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
 import type {
   KeywordMatch,
   KeywordCategory,
+  KeywordMatchStatus,
 } from '@/lib/analysis-types';
 
 interface MissingKeywordsTabProps {
@@ -13,216 +15,293 @@ interface MissingKeywordsTabProps {
   jobDescriptionProvided: boolean;
 }
 
-const categoryConfig: Record<
-  KeywordCategory,
-  { label: string; color: string }
-> = {
-  technical: {
-    label: 'Technical Skills',
-    color: 'bg-accent/10 text-accent border-accent/20',
-  },
-  soft: {
-    label: 'Soft Skills',
-    color: 'bg-chart-2/10 text-chart-2 border-chart-2/20',
-  },
-  tools: {
-    label: 'Tools & Platforms',
-    color: 'bg-chart-5/10 text-chart-5 border-chart-5/20',
-  },
-  domain: {
-    label: 'Domain Knowledge',
-    color: 'bg-chart-3/10 text-chart-3 border-chart-3/20',
-  },
+type StatusFilter = 'all' | KeywordMatchStatus;
+type CategoryFilter = 'all' | KeywordCategory;
+
+const categories: Record<KeywordCategory, string> = {
+  technical: 'Technical Skills',
+  soft: 'Soft Skills',
+  tools: 'Tools & Platforms',
+  domain: 'Domain Knowledge',
 };
 
-const statusConfig = {
-  exact: {
-    label: 'Exact Match',
-    color: 'border-success/20 bg-success/10 text-success',
-    order: 2,
-  },
-  related: {
-    label: 'Related Skill',
-    color: 'border-warning/20 bg-warning/10 text-warning',
-    order: 1,
-  },
-  missing: {
-    label: 'Missing',
-    color: 'border-destructive/20 bg-destructive/10 text-destructive',
-    order: 0,
-  },
+const statusStyles = {
+  exact: 'border-success/20 bg-success/10 text-success',
+  related: 'border-warning/20 bg-warning/10 text-warning',
+  missing: 'border-destructive/20 bg-destructive/10 text-destructive',
+};
+
+const statusLabels = {
+  exact: 'Exact Match',
+  related: 'Related Skill',
+  missing: 'Missing',
+};
+
+const statusOrder = {
+  missing: 0,
+  related: 1,
+  exact: 2,
 };
 
 export function MissingKeywordsTab({
   keywordMatches,
   jobDescriptionProvided,
 }: MissingKeywordsTabProps) {
-  const counts = React.useMemo(
-    () => ({
-      exact: keywordMatches.filter(
-        (item) => item.matchStatus === 'exact'
-      ).length,
-      related: keywordMatches.filter(
-        (item) => item.matchStatus === 'related'
-      ).length,
-      missing: keywordMatches.filter(
-        (item) => item.matchStatus === 'missing'
-      ).length,
-    }),
-    [keywordMatches]
-  );
+  const [search, setSearch] = React.useState('');
+  const [status, setStatus] = React.useState<StatusFilter>('all');
+  const [category, setCategory] =
+    React.useState<CategoryFilter>('all');
 
-  const categories = React.useMemo(() => {
-    const grouped: Record<KeywordCategory, KeywordMatch[]> = {
-      technical: [],
-      soft: [],
-      tools: [],
-      domain: [],
-    };
+  const counts = {
+    all: keywordMatches.length,
+    exact: keywordMatches.filter(
+      (item) => item.matchStatus === 'exact'
+    ).length,
+    related: keywordMatches.filter(
+      (item) => item.matchStatus === 'related'
+    ).length,
+    missing: keywordMatches.filter(
+      (item) => item.matchStatus === 'missing'
+    ).length,
+  };
 
-    keywordMatches.forEach((item) => {
-      grouped[item.category].push(item);
-    });
+  const filtered = React.useMemo(() => {
+    const query = search.trim().toLowerCase();
 
-    for (const category of Object.keys(grouped) as KeywordCategory[]) {
-      grouped[category].sort(
-        (a, b) =>
-          statusConfig[a.matchStatus].order -
-          statusConfig[b.matchStatus].order
-      );
-    }
+    return keywordMatches
+      .filter((item) => {
+        const matchesSearch = item.keyword
+          .toLowerCase()
+          .includes(query);
 
-    return grouped;
-  }, [keywordMatches]);
+        const matchesStatus =
+          status === 'all' || item.matchStatus === status;
 
-  if (keywordMatches.length === 0) {
-    return (
-      <div className="rounded-xl border p-4 text-sm text-muted-foreground">
-        No keyword signals are available for this analysis.
-      </div>
-    );
-  }
+        const matchesCategory =
+          category === 'all' || item.category === category;
+
+        return (
+          matchesSearch &&
+          matchesStatus &&
+          matchesCategory
+        );
+      })
+      .sort((a, b) => {
+        const difference =
+          statusOrder[a.matchStatus] -
+          statusOrder[b.matchStatus];
+
+        return difference || a.keyword.localeCompare(b.keyword);
+      });
+  }, [keywordMatches, search, status, category]);
+
+  const filters: StatusFilter[] = [
+    'all',
+    'missing',
+    'related',
+    'exact',
+  ];
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
+    <div className="space-y-5">
+      <div>
         <h3 className="text-sm font-semibold text-foreground">
           Keyword Match Analysis
         </h3>
 
-        <p className="text-xs leading-relaxed text-muted-foreground">
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
           {jobDescriptionProvided
-            ? 'Keyword signals identified from the target job description.'
-            : 'Keyword signals inferred from a general role benchmark.'}
+            ? 'Keywords evaluated against your target job description.'
+            : 'Keywords evaluated against a general role benchmark.'}
         </p>
-
-        <div className="flex flex-wrap gap-2">
-          <span className="rounded-lg border border-success/20 bg-success/10 px-3 py-2 text-xs font-semibold text-success">
-            {counts.exact} Exact
-          </span>
-
-          <span className="rounded-lg border border-warning/20 bg-warning/10 px-3 py-2 text-xs font-semibold text-warning">
-            {counts.related} Related
-          </span>
-
-          <span className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
-            {counts.missing} Missing
-          </span>
-        </div>
       </div>
 
-      {counts.missing === 0 && (
-        <div className="flex items-start gap-3 rounded-xl border border-success/20 bg-success/5 p-4">
-          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" />
-          <div>
-            <p className="text-sm font-semibold text-foreground">
-              No keyword gaps detected
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              All evaluated keywords were matched either exactly or
-              through an approved related-skill match.
-            </p>
-          </div>
+      <div className="grid grid-cols-3 gap-2">
+        {(['exact', 'related', 'missing'] as const).map(
+          (item) => (
+            <div
+              key={item}
+              className={cn(
+                'rounded-xl border p-3 text-center',
+                statusStyles[item]
+              )}
+            >
+              <p className="text-xl font-bold tabular-nums">
+                {counts[item]}
+              </p>
+              <p className="mt-1 text-[11px] font-medium">
+                {statusLabels[item]}
+              </p>
+            </div>
+          )
+        )}
+      </div>
+
+      <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-3">
+        <div className="relative">
+          <Search
+            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search keywords..."
+            aria-label="Search evaluated keywords"
+            className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
         </div>
+
+        <div className="flex flex-wrap gap-2">
+          {filters.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setStatus(item)}
+              aria-pressed={status === item}
+              className={cn(
+                'rounded-lg border px-3 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                status === item
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-background text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {item === 'all'
+                ? 'All'
+                : statusLabels[item]}{' '}
+              ({counts[item]})
+            </button>
+          ))}
+        </div>
+
+        <label className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+          Category
+          <select
+            value={category}
+            onChange={(event) =>
+              setCategory(event.target.value as CategoryFilter)
+            }
+            className="h-9 min-w-0 max-w-[220px] flex-1 rounded-lg border border-input bg-background px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="all">All Categories</option>
+            {(Object.keys(categories) as KeywordCategory[]).map(
+              (item) => (
+                <option key={item} value={item}>
+                  {categories[item]}
+                </option>
+              )
+            )}
+          </select>
+        </label>
+      </div>
+
+      <p className="text-xs text-muted-foreground" aria-live="polite">
+        Showing {filtered.length} of {keywordMatches.length} keywords
+      </p>
+
+      {filtered.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border p-8 text-center">
+          <p className="text-sm font-medium text-foreground">
+            No matching keywords found
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Try changing your search or filters.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setSearch('');
+              setStatus('all');
+              setCategory('all');
+            }}
+            className="mt-3 text-xs font-semibold text-accent underline underline-offset-4"
+          >
+            Clear filters
+          </button>
+        </div>
+      ) : (
+        (Object.keys(categories) as KeywordCategory[]).map(
+          (group) => {
+            const items = filtered.filter(
+              (item) => item.category === group
+            );
+
+            if (items.length === 0) return null;
+
+            return (
+              <section key={group} className="space-y-3">
+                <h4 className="text-sm font-semibold text-foreground">
+                  {categories[group]}
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    ({items.length})
+                  </span>
+                </h4>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {items.map((item, index) => (
+                    <div
+                      key={`${group}-${item.keyword}-${index}`}
+                      className="rounded-xl border border-border/60 bg-card p-3"
+                    >
+                      <p className="break-words text-sm font-semibold text-foreground">
+                        {item.keyword}
+                      </p>
+
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        <span
+                          className={cn(
+                            'rounded-full border px-2 py-1 text-[10px] font-medium',
+                            statusStyles[item.matchStatus]
+                          )}
+                        >
+                          {statusLabels[item.matchStatus]}
+                        </span>
+
+                        {jobDescriptionProvided && (
+                          <span className="rounded-full border border-border bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                            {item.requirementType === 'required'
+                              ? 'Required'
+                              : 'Preferred'}
+                          </span>
+                        )}
+
+                        {item.importance === 'high' && (
+                          <span className="rounded-full border border-destructive/20 bg-destructive/10 px-2 py-1 text-[10px] font-medium text-destructive">
+                            High Importance
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            );
+          }
+        )
       )}
 
-      {(Object.keys(categories) as KeywordCategory[]).map((category) => {
-        const items = categories[category];
-
-        if (items.length === 0) return null;
-
-        return (
-          <section key={category}>
-            <h4 className="mb-3 text-sm font-semibold text-foreground">
-              {categoryConfig[category].label}
-              <span className="ml-2 text-xs font-normal text-muted-foreground">
-                ({items.length})
-              </span>
-            </h4>
-
-            <div className="flex flex-wrap gap-2">
-              {items.map((item) => (
-                <div
-                  key={item.keyword}
-                  className={cn(
-                    'flex flex-wrap items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium',
-                    categoryConfig[category].color
-                  )}
-                >
-                  <span>{item.keyword}</span>
-
-                  <span
-                    className={cn(
-                      'rounded-full border px-2 py-0.5 text-[10px] font-semibold',
-                      statusConfig[item.matchStatus].color
-                    )}
-                  >
-                    {statusConfig[item.matchStatus].label}
-                  </span>
-
-                  {jobDescriptionProvided && (
-                    <span
-                      className={cn(
-                        'rounded-full border px-2 py-0.5 text-[10px] font-semibold',
-                        item.requirementType === 'required'
-                          ? 'border-destructive/20 bg-destructive/10 text-destructive'
-                          : 'border-warning/20 bg-warning/10 text-warning'
-                      )}
-                    >
-                      {item.requirementType === 'required'
-                        ? 'Required'
-                        : 'Preferred'}
-                    </span>
-                  )}
-
-                  {item.importance === 'high' && (
-                    <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
-                      HIGH
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        );
-      })}
-
-      <div className="space-y-2 rounded-xl border bg-muted/20 p-4">
-        <div className="flex items-start gap-2">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            Exact Match means the keyword appears in the extracted
-            resume text. Related Skill means an approved technology
-            alias was detected. Missing means neither was found.
+      <div className="flex items-start gap-2 rounded-xl border border-border/60 bg-muted/20 p-4">
+        <Info
+          className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <div className="space-y-2 text-xs leading-relaxed text-muted-foreground">
+          <p>
+            <strong className="text-foreground">Exact:</strong>{' '}
+            The keyword was detected in the resume text.
           </p>
-        </div>
-
-        <div className="flex items-start gap-2">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            Related skills count toward the estimated keyword score,
-            but may not satisfy literal keyword searches in employer
-            ATS systems. Only include skills you genuinely possess.
+          <p>
+            <strong className="text-foreground">Related:</strong>{' '}
+            An approved related technology or alias was detected.
+          </p>
+          <p>
+            <strong className="text-foreground">Missing:</strong>{' '}
+            Neither an exact nor an approved related match was found.
+          </p>
+          <p>
+            Only add keywords for skills or experience you genuinely have.
+            Related matches may not satisfy literal ATS searches.
           </p>
         </div>
       </div>
