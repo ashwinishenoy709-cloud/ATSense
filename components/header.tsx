@@ -1,61 +1,88 @@
 'use client';
 
+import * as React from 'react';
 import { Activity, Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import * as React from 'react';
-import { Button } from '@/components/ui/button';
 
 export function Header() {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
-  React.useEffect(() => setMounted(true), []);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  const toggle = () => setTheme(theme === 'dark' ? 'light' : 'dark');
+  const isDark = resolvedTheme === 'dark';
+
+  const toggleTheme = () => {
+    setTheme(isDark ? 'light' : 'dark');
+  };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent shadow-sm">
-            <Activity className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
-              Resume Pulse{' '}
-              <span className="bg-gradient-to-r from-accent to-chart-5 bg-clip-text text-transparent">
-                AI
-              </span>
-            </h1>
-          </div>
-        </div>
+    <>
+      <a
+        href="#main-content"
+        className="fixed left-3 top-3 z-[100] -translate-y-24 rounded-lg bg-background px-4 py-2 text-sm font-semibold text-foreground shadow-lg ring-2 ring-ring focus:translate-y-0"
+      >
+        Skip to main content
+      </a>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-2 rounded-full border border-accent/20 bg-accent/10 px-3 py-1">
-            <span className="h-2 w-2 animate-pulse-dot rounded-full bg-accent" />
-            <span className="text-xs font-semibold text-accent">
-              ATS Simulator v1.0
+      <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/95 backdrop-blur-md">
+        <div className="mx-auto flex min-h-[64px] w-full max-w-6xl items-center justify-between gap-3 px-3 py-2 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
+              <Activity
+                className="h-5 w-5 text-primary-foreground"
+                aria-hidden="true"
+              />
+            </div>
+
+            <span className="min-w-0 truncate text-sm font-bold tracking-tight text-foreground sm:text-xl">
+              Resume Pulse
+              <span className="hidden text-accent sm:inline">
+                {' '}AI
+              </span>
             </span>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggle}
-            className="h-9 w-9 rounded-full"
-            aria-label="Toggle theme"
-          >
-            {mounted ? (
-              theme === 'dark' ? (
-                <Sun className="h-4 w-4" />
+
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="hidden rounded-full border border-border bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground lg:inline-flex">
+              AI-assisted resume analysis
+            </span>
+
+            <button
+              type="button"
+              onClick={toggleTheme}
+              disabled={!mounted}
+              aria-label={
+                mounted
+                  ? isDark
+                    ? 'Switch to light mode'
+                    : 'Switch to dark mode'
+                  : 'Change theme'
+              }
+              title={
+                mounted
+                  ? isDark
+                    ? 'Light mode'
+                    : 'Dark mode'
+                  : 'Change theme'
+              }
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
+            >
+              {mounted ? (
+                isDark ? (
+                  <Sun className="h-5 w-5" aria-hidden="true" />
+                ) : (
+                  <Moon className="h-5 w-5" aria-hidden="true" />
+                )
               ) : (
-                <Moon className="h-4 w-4" />
-              )
-            ) : (
-              <div className="h-4 w-4" />
-            )}
-          </Button>
+                <span className="h-5 w-5" aria-hidden="true" />
+              )}
+            </button>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+    </>
   );
 }
