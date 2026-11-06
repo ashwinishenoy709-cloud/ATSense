@@ -15,245 +15,208 @@ import {
 import { cn } from '@/lib/utils';
 import type { AnalysisMetrics } from '@/lib/analysis-types';
 
-interface MetricCardProps {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  weight: number;
-  note: string;
-  colorClass: string;
-}
-
-function MetricCard({
-  icon,
-  label,
-  value,
-  weight,
-  note,
-  colorClass,
-}: MetricCardProps) {
-  const [animatedValue, setAnimatedValue] = React.useState(0);
-
-  React.useEffect(() => {
-    const duration = 1000;
-    const start = performance.now();
-    let raf: number;
-
-    const animate = (now: number) => {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-
-      setAnimatedValue(Math.round(eased * value));
-
-      if (progress < 1) {
-        raf = requestAnimationFrame(animate);
-      }
-    };
-
-    raf = requestAnimationFrame(animate);
-
-    return () => cancelAnimationFrame(raf);
-  }, [value]);
-
-  const getBarColor = (score: number) => {
-    if (score >= 80) return 'bg-success';
-    if (score >= 60) return 'bg-warning';
-
-    return 'bg-destructive';
-  };
-
-  const weightedPoints = ((value / 100) * weight).toFixed(1);
-
-  return (
-    <div className="rounded-xl border border-border/60 bg-card p-4 transition-all hover:shadow-md">
-      <div className="mb-3 flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <div
-            className={cn(
-              'flex h-8 w-8 items-center justify-center rounded-lg',
-              colorClass
-            )}
-          >
-            {icon}
-          </div>
-
-          <span className="text-xs font-medium text-muted-foreground">
-            {label}
-          </span>
-        </div>
-
-        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-          {weight}% weight
-        </span>
-      </div>
-
-      <div className="mb-2 flex items-end justify-between gap-2">
-        <div className="flex items-baseline gap-1">
-          <span className="text-2xl font-bold tabular-nums text-foreground">
-            {animatedValue}
-          </span>
-
-          <span className="text-sm text-muted-foreground">%</span>
-        </div>
-
-        <span className="text-[11px] font-medium text-muted-foreground">
-          {weightedPoints} / {weight} pts
-        </span>
-      </div>
-
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className={cn(
-            'h-full rounded-full transition-all duration-1000',
-            getBarColor(value)
-          )}
-          style={{ width: `${animatedValue}%` }}
-        />
-      </div>
-
-      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-        {note}
-      </p>
-    </div>
-  );
-}
-
 interface MetricsGridProps {
   metrics: AnalysisMetrics;
 }
 
+interface MetricDefinition {
+  key: keyof AnalysisMetrics;
+  label: string;
+  weight: number;
+  description: string;
+  icon: React.ReactNode;
+}
+
+const metricDefinitions: MetricDefinition[] = [
+  {
+    key: 'keywordMatch',
+    label: 'Keyword / Skill Match',
+    weight: 30,
+    description: 'Coverage of evaluated skills and keyword signals.',
+    icon: <KeyRound className="h-4 w-4" />,
+  },
+  {
+    key: 'experienceRelevance',
+    label: 'Experience Relevance',
+    weight: 20,
+    description: 'Evidence of relevant skills in projects and experience.',
+    icon: <Briefcase className="h-4 w-4" />,
+  },
+  {
+    key: 'formattingQuality',
+    label: 'ATS Text Structure',
+    weight: 15,
+    description: 'Readability and organization of extracted resume text.',
+    icon: <LayoutTemplate className="h-4 w-4" />,
+  },
+  {
+    key: 'sectionCompleteness',
+    label: 'Section Completeness',
+    weight: 10,
+    description: 'Presence of important resume sections.',
+    icon: <ListChecks className="h-4 w-4" />,
+  },
+  {
+    key: 'readabilityIndex',
+    label: 'Readability',
+    weight: 10,
+    description: 'Clarity and scanability of resume wording.',
+    icon: <BookOpen className="h-4 w-4" />,
+  },
+  {
+    key: 'quantifiedAchievements',
+    label: 'Quantified Achievements',
+    weight: 5,
+    description: 'Use of measurable results and verified achievements.',
+    icon: <BarChart3 className="h-4 w-4" />,
+  },
+  {
+    key: 'actionVerbQuality',
+    label: 'Action Verb Quality',
+    weight: 5,
+    description: 'Use of clear, action-oriented language.',
+    icon: <Zap className="h-4 w-4" />,
+  },
+  {
+    key: 'contactParsing',
+    label: 'Contact / ATS Parsing',
+    weight: 5,
+    description: 'Detectability of contact and profile information.',
+    icon: <Mail className="h-4 w-4" />,
+  },
+];
+
+function getScoreStyle(value: number) {
+  if (value >= 80) {
+    return {
+      bar: 'bg-success',
+      text: 'Strong signal',
+      textColor: 'text-success',
+    };
+  }
+
+  if (value >= 60) {
+    return {
+      bar: 'bg-warning',
+      text: 'Can improve',
+      textColor: 'text-warning',
+    };
+  }
+
+  return {
+    bar: 'bg-destructive',
+    text: 'Needs attention',
+    textColor: 'text-destructive',
+  };
+}
+
 export function MetricsGrid({ metrics }: MetricsGridProps) {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <MetricCard
-        icon={<KeyRound className="h-4 w-4 text-accent" />}
-        label="Keyword / Skill Match"
-        value={metrics.keywordMatch}
-        weight={30}
-        note={
-          metrics.keywordMatch >= 80
-            ? 'Strong coverage of the weighted ATS skills and keyword signals.'
-            : metrics.keywordMatch >= 60
-              ? 'Moderate keyword coverage with some relevant gaps.'
-              : 'Important target-role keywords are missing from the resume.'
-        }
-        colorClass="bg-accent/10"
-      />
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {metricDefinitions.map((metric) => {
+          const value = Math.max(
+            0,
+            Math.min(100, metrics[metric.key])
+          );
 
-      <MetricCard
-        icon={<Briefcase className="h-4 w-4 text-chart-5" />}
-        label="Experience Relevance"
-        value={metrics.experienceRelevance}
-        weight={20}
-        note={
-          metrics.experienceRelevance >= 80
-            ? 'Relevant skills are well demonstrated in projects or experience.'
-            : metrics.experienceRelevance >= 60
-              ? 'Some target skills are supported by project or experience evidence.'
-              : 'More target-role skills should be demonstrated through real experience or projects.'
-        }
-        colorClass="bg-chart-5/10"
-      />
+          const style = getScoreStyle(value);
+          const weightedPoints = (
+            (value / 100) *
+            metric.weight
+          ).toFixed(1);
 
-      <MetricCard
-        icon={<LayoutTemplate className="h-4 w-4 text-chart-2" />}
-        label="ATS Text Structure"
-        value={metrics.formattingQuality}
-        weight={15}
-        note={
-          metrics.formattingQuality >= 80
-            ? 'Strong extracted-text structure, with recognizable sections and consistent formatting signals.'
-            : metrics.formattingQuality >= 60
-              ? 'Generally readable extracted-text structure, with some improvements possible.'
-              : 'Extracted-text structure may benefit from clearer headings, bullets, and organization.'
-        }
-        colorClass="bg-chart-2/10"
-      />
+          return (
+            <div
+              key={metric.key}
+              className="rounded-xl border border-border/60 bg-card p-4 transition-shadow hover:shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
+                    {metric.icon}
+                  </div>
 
-      <MetricCard
-        icon={<ListChecks className="h-4 w-4 text-chart-3" />}
-        label="Section Completeness"
-        value={metrics.sectionCompleteness}
-        weight={10}
-        note={
-          metrics.sectionCompleteness >= 80
-            ? 'Core resume sections are present.'
-            : metrics.sectionCompleteness >= 60
-              ? 'Most important sections are present.'
-              : 'One or more important resume sections appear to be missing.'
-        }
-        colorClass="bg-chart-3/10"
-      />
+                  <h3 className="text-xs font-semibold leading-relaxed text-foreground">
+                    {metric.label}
+                  </h3>
+                </div>
 
-      <MetricCard
-        icon={<BookOpen className="h-4 w-4 text-accent" />}
-        label="Readability"
-        value={metrics.readabilityIndex}
-        weight={10}
-        note={
-          metrics.readabilityIndex >= 80
-            ? 'Resume content is easy to scan and read.'
-            : metrics.readabilityIndex >= 60
-              ? 'Generally readable, although some wording may be dense.'
-              : 'Dense wording may reduce recruiter scanability.'
-        }
-        colorClass="bg-accent/10"
-      />
+                <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                  {metric.weight}% weight
+                </span>
+              </div>
 
-      <MetricCard
-        icon={<BarChart3 className="h-4 w-4 text-chart-2" />}
-        label="Quantified Achievements"
-        value={metrics.quantifiedAchievements}
-        weight={5}
-        note={
-          metrics.quantifiedAchievements >= 80
-            ? 'Several achievements contain measurable evidence.'
-            : metrics.quantifiedAchievements >= 60
-              ? 'Some measurable achievements are present.'
-              : 'Add verified numbers or outcomes where they genuinely exist.'
-        }
-        colorClass="bg-chart-2/10"
-      />
+              <div className="mt-4 flex items-end justify-between gap-2">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-bold tabular-nums text-foreground">
+                    {value}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    /100
+                  </span>
+                </div>
 
-      <MetricCard
-        icon={<Zap className="h-4 w-4 text-chart-3" />}
-        label="Action Verb Quality"
-        value={metrics.actionVerbQuality}
-        weight={5}
-        note={
-          metrics.actionVerbQuality >= 80
-            ? 'Strong action-oriented language is used throughout the resume.'
-            : metrics.actionVerbQuality >= 60
-              ? 'Several bullets use effective action verbs.'
-              : 'More bullets could begin with clear, strong action verbs.'
-        }
-        colorClass="bg-chart-3/10"
-      />
+                <span
+                  className={cn(
+                    'text-[11px] font-medium',
+                    style.textColor
+                  )}
+                >
+                  {style.text}
+                </span>
+              </div>
 
-      <MetricCard
-        icon={<Mail className="h-4 w-4 text-chart-5" />}
-        label="Contact / ATS Parsing"
-        value={metrics.contactParsing}
-        weight={5}
-        note={
-          metrics.contactParsing >= 80
-            ? 'Important contact and profile information is readily detectable.'
-            : metrics.contactParsing >= 60
-              ? 'Most basic contact information is detectable.'
-              : 'Check email, phone, LinkedIn, and GitHub visibility.'
-        }
-        colorClass="bg-chart-5/10"
-      />
-       <div className="sm:col-span-2 rounded-xl border border-border/60 bg-muted/30 p-4">
+              <div
+                role="progressbar"
+                aria-label={`${metric.label} score`}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={value}
+                className="mt-3 h-2 overflow-hidden rounded-full bg-muted"
+              >
+                <div
+                  className={cn(
+                    'h-full rounded-full',
+                    style.bar
+                  )}
+                  style={{ width: `${value}%` }}
+                />
+              </div>
+
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">
+                  Weighted contribution
+                </span>
+                <span className="text-xs font-semibold tabular-nums text-foreground">
+                  {weightedPoints} / {metric.weight} pts
+                </span>
+              </div>
+
+              <p className="mt-3 border-t border-border/50 pt-3 text-xs leading-relaxed text-muted-foreground">
+                {metric.description}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
         <p className="text-xs leading-relaxed text-muted-foreground">
           <span className="font-semibold text-foreground">
-            About ATS Text Structure:
+            How scoring works:
           </span>{' '}
-          This score estimates the quality of extracted resume text using
-          section headings, bullet points, content density, and structural
-          consistency. It does not verify visual formatting such as fonts,
-          margins, tables, columns, or text boxes.
+          Each metric contributes according to its assigned weight.
+          The eight weights total 100%.
+        </p>
+
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          <span className="font-semibold text-foreground">
+            Formatting limitation:
+          </span>{' '}
+          ATS Text Structure evaluates extracted text, headings,
+          bullets, and organization. It does not verify visual
+          properties such as fonts, margins, columns, or text boxes.
         </p>
       </div>
     </div>
