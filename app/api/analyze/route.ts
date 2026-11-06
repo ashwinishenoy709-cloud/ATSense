@@ -26,10 +26,12 @@ import {
 
 import {
   hasValidFileSignature,
+  MAX_DECLARED_REQUEST_BYTES,
   validateDeclaredContentLength,
   validateJobDescription,
   validateResumeFile,
 } from '@/lib/upload-validation';
+import { parseBoundedFormData, RequestBodyTooLargeError } from '@/lib/request-body';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -629,8 +631,14 @@ export async function POST(req: NextRequest) {
 
     let formData: FormData;
     try {
-      formData = await req.formData();
-    } catch {
+      formData = await parseBoundedFormData(req, MAX_DECLARED_REQUEST_BYTES);
+    } catch (error) {
+      if (error instanceof RequestBodyTooLargeError) {
+        return NextResponse.json(
+          { error: 'Upload request is too large.', code: 'REQUEST_TOO_LARGE' },
+          { status: 413 }
+        );
+      }
       return NextResponse.json(
         { error: 'Unable to read the upload form.', code: 'INVALID_FORM_DATA' },
         { status: 400 }
