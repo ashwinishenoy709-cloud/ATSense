@@ -1,84 +1,97 @@
-# ATSense
+# ATSense — AI-Powered Resume Analyzer
 
-A Next.js single-page AI resume analyzer and ATS compatibility simulator. The app parses an uploaded PDF or DOCX resume, optionally compares it with a target job description, calculates ATS-style metrics from the actual extracted text, and uses Google Gemini for grounded keyword extraction, grammar/tone review, and actionable suggestions.
+ATSense is a web application that analyzes resumes and provides ATS (Applicant Tracking System) compatibility insights using Google Gemini AI.
 
-## What changed in this version
+It helps job seekers evaluate their resumes, compare them with job descriptions, identify missing keywords, and receive practical suggestions for improvement.
 
-- Removed all preset analysis fixtures and hard-coded result sources.
-- Removed generator-specific project metadata.
-- Migrated Gemini calls from the legacy `@google/generative-ai` package to `@google/genai`.
-- Uses the Gemini Interactions API with structured JSON output.
-- Sets `store: false` for the Gemini interaction so the app does not request server-side interaction storage.
-- PDF text is parsed with `pdf-parse`; DOCX text is parsed with `mammoth`.
-- ATS score is calculated by the server from the uploaded resume rather than being generated as a preset number.
-- Missing keywords are verified against the extracted resume text before they are displayed.
-- AI rewrites are instructed not to invent metrics, experience, employers, skills, certifications, or achievements.
-- Added live-analysis metadata in the UI so you can see the uploaded filename, analysis mode, and Gemini model that actually ran.
+**Live Website:** https://atsense-ebon.vercel.app
 
-## How the score works
+## Features
 
-When a job description is supplied, the overall ATS compatibility score uses:
+- **Resume Upload:** Supports PDF and DOCX files up to 4 MB.
+- **ATS Compatibility Score:** Calculates a score based on resume content, keyword matching, relevance, formatting, and readability.
+- **Job Description Matching:** Compares a resume against an optional target job description.
+- **Keyword Analysis:** Identifies matched and missing keywords.
+- **AI-Powered Suggestions:** Provides relevant recommendations to improve resume content.
+- **Grammar and Writing Review:** Highlights potential writing improvements.
+- **Responsive Interface:** Works on desktop and mobile devices.
+- **Real-Time Analysis:** Processes uploaded resumes using Google Gemini instead of predefined or mock results.
 
-- 50% weighted keyword coverage
-- 25% ATS parsing/formatting quality
-- 15% section completeness
-- 10% readability
+## Tech Stack
 
-Without a job description, the app uses a conservative role benchmark inferred from the resume and weights:
+| Technology | Purpose |
+|---|---|
+| Next.js | Full-stack web framework |
+| React | User interface |
+| TypeScript | Application development |
+| Tailwind CSS | Styling and responsive design |
+| Google Gemini API | AI-powered resume analysis |
+| PDF-Parse and Mammoth | Resume text extraction |
+| Vitest | Automated testing |
+| Vercel | Deployment |
 
-- 25% benchmark keyword coverage
-- 35% ATS parsing/formatting quality
-- 25% section completeness
-- 15% readability
+## Getting Started
 
-This is an ATS compatibility estimate, not a score from a specific employer's Applicant Tracking System.
+**1. Clone the repository**
 
-## Setup
+`git clone https://github.com/ashwinishenoy709-cloud/ATSense.git`
 
-1. Install dependencies:
+**2. Navigate to the project directory**
 
-```bash
-npm install
-```
+`cd ATSense`
 
-2. Create `.env.local` in the project root. You can copy `.env.example` and then insert your private Gemini API key:
+**3. Install dependencies**
 
-```env
-GEMINI_API_KEY=your_actual_key_here
-GEMINI_MODEL=gemini-3.6-flash
-```
+`npm install`
 
-`GEMINI_MODEL` is optional. The server also includes fallback Flash models if the configured model is unavailable.
+**4. Configure environment variables**
 
-3. Run the app:
+Create a `.env.local` file in the project root and add:
 
-```bash
-npm run dev
-```
+`GEMINI_API_KEY=your_gemini_api_key_here`
 
-4. Open `http://localhost:3000`, upload a text-based PDF or DOCX resume, optionally paste a target job description, and choose **Analyze Resume**.
+Optionally, configure the Gemini model:
 
-## Verification
+`GEMINI_MODEL=gemini-3.6-flash`
 
-Useful checks before committing or deploying:
+Replace `your_gemini_api_key_here` with your own Gemini API key.
 
-```bash
-npm run typecheck
-npm run lint
-```
+**5. Run the development server**
 
-To verify that results are live rather than preset, analyze two substantially different resumes or use the same resume against two very different job descriptions. The keyword coverage, missing terms, suggestions, and overall score should change because they are derived from the uploaded content.
+`npm run dev`
 
-## Privacy and API key safety
+Open http://localhost:3000 in your browser.
 
-- Keep `.env.local` private; it is ignored by Git.
-- Never prefix the Gemini key with `NEXT_PUBLIC_` because that would expose it to browser JavaScript.
-- The API call is made from `app/api/analyze/route.ts`, not directly from the client.
-- The Gemini Interactions request is configured with `store: false`.
+Node.js 22 or later is recommended.
 
-## Current file support
+## How It Works
 
-- PDF: text-based PDF files
-- DOCX: Microsoft Word `.docx`
+1. Upload a PDF or DOCX resume.
+2. Optionally paste a target job description.
+3. Click **Analyze Resume**.
+4. The application extracts resume text and processes it using Gemini AI and server-side scoring logic.
+5. Review the ATS score, keyword analysis, and improvement suggestions.
 
-Scanned/image-only PDFs need OCR before this app can analyze them accurately.
+## Testing
+
+Run the following commands to verify the application:
+
+- `npm run lint` — Check code quality.
+- `npm run typecheck` — Check TypeScript types.
+- `npx vitest run` — Run automated tests.
+- `npm run build` — Create a production build.
+
+## Important Notes
+
+- Resume file size limit: **4 MB**.
+- Supported formats: **PDF and DOCX**.
+- Job description limit: **30,000 characters**.
+- Text-based PDFs are supported; scanned PDFs may require OCR.
+- ATS scores are estimates generated by the application and do not represent scores from a specific employer's ATS.
+- Keep your Gemini API key private. Never commit `.env.local` to GitHub.
+
+## Deployment
+
+ATSense is deployed on **Vercel**.
+
+**Live Application:** https://atsense-ebon.vercel.app
