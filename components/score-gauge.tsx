@@ -16,8 +16,10 @@ export function ScoreGauge({ result }: ScoreGaugeProps) {
 
   React.useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setDisplayScore(score);
-      return;
+      const frame = requestAnimationFrame(() => {
+        setDisplayScore(score);
+      });
+      return () => cancelAnimationFrame(frame);
     }
 
     const duration = 1000;

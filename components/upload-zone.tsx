@@ -22,7 +22,7 @@ interface UploadZoneProps {
   isAnalyzing: boolean;
 }
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const MAX_JOB_DESCRIPTION = 30000;
 
 const PDF_MIME = 'application/pdf';
@@ -45,7 +45,7 @@ function getFileError(file: File): string | null {
   }
 
   if (file.size > MAX_FILE_SIZE) {
-    return 'Your resume exceeds the 10 MB limit. Please upload a smaller file.';
+    return 'Your resume exceeds the 4 MB limit. Please upload a smaller file.';
   }
 
   const extension = file.name.toLowerCase();
@@ -280,7 +280,7 @@ export function UploadZone({
             </span>
 
             <p className="mt-4 text-xs text-muted-foreground">
-              PDF or DOCX · Maximum 10 MB
+              PDF or DOCX · Maximum 4 MB
             </p>
           </button>
         ) : (
