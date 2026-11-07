@@ -1,11 +1,7 @@
-/**
- * Server-side upload checks. These complement (but do not replace) host-level
- * request-body limits and production rate limiting.
- */
-export const MAX_RESUME_FILE_BYTES = 10 * 1024 * 1024;
+export const MAX_RESUME_FILE_BYTES = 4 * 1024 * 1024;
 export const MAX_JOB_DESCRIPTION_CHARS = 30_000;
 // Allow multipart boundaries, metadata, and the optional job description.
-export const MAX_DECLARED_REQUEST_BYTES = MAX_RESUME_FILE_BYTES + 512 * 1024;
+export const MAX_DECLARED_REQUEST_BYTES = MAX_RESUME_FILE_BYTES + 256 * 1024;
 
 export type ResumeFileKind = 'pdf' | 'docx';
 
@@ -101,7 +97,7 @@ export function validateResumeFile(
 
   if (file.size > MAX_RESUME_FILE_BYTES) {
     return {
-      error: error(413, 'FILE_TOO_LARGE', 'Resume file exceeds the 10 MB limit.'),
+      error: error(413, 'FILE_TOO_LARGE', 'Resume file exceeds the 4 MB limit.'),
     };
   }
 

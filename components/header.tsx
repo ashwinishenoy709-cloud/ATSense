@@ -7,11 +7,7 @@ import { useTheme } from 'next-themes';
 
 export function Header() {
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = resolvedTheme !== undefined;
 
   const isDark = resolvedTheme === 'dark';
 

@@ -37,9 +37,6 @@ export function isGeminiTimeoutError(error: unknown): boolean {
   if (error instanceof GeminiAnalysisTimeoutError) return true;
   if (!(error instanceof Error)) return false;
 
-  return (
-    error.name === 'RequestTimeoutError' ||
-    error.name === 'TimeoutError' ||
-    /\b(?:timed out|timeout)\b/i.test(error.message)
-  );
+  return (error.name === 'RequestTimeoutError' ||
+  error.name === 'TimeoutError' || /\b(?:timed out|timeout)\b/i.test(error.message));
 }
